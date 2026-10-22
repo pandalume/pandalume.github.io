@@ -17,6 +17,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import readline from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
+import https from 'node:https';
 import { ROOT, KINDS, NOTES_MAX, loadData, readJson, writeJson, validate, cmpVersion, latestFor, releaseTag, androidFeed, windowsFeed, pendingPolicyChanges } from './lib.mjs';
 
 const CONFIG = readJson(path.join(ROOT, 'tools', 'zgs.config.json'));
@@ -81,6 +82,24 @@ async function gh(method, url, body, extra = {}) {
   if (!res.ok) stop(`GitHub ${method} ${url} → ${res.status}: ${(await res.text()).slice(0, 300)}${res.status === 401 ? '\nThe saved GitHub login was refused. Set ZGS_GITHUB_TOKEN (see README).' : ''}`);
   return res.status === 204 ? null : res.json();
 }
+/** Streams a file to a release with a progress line. Uses node:https, not fetch: fetch gives up when
+ *  GitHub takes over 5 minutes to answer, which happens for 100 MB+ files on a home connection. */
+function uploadAsset(uploadUrl, file, name) {
+  const size = fs.statSync(file).size, url = new URL(`${uploadUrl.replace(/\{.*$/, '')}?name=${encodeURIComponent(name)}`);
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, { method: 'POST', headers: { Authorization: `Bearer ${token()}`, Accept: 'application/vnd.github+json', 'User-Agent': 'zgs', 'Content-Type': 'application/octet-stream', 'Content-Length': size } }, res => {
+      let body = ''; res.setEncoding('utf8'); res.on('data', d => (body += d));
+      res.on('end', () => { process.stdout.write('\n'); res.statusCode < 300 ? resolve(JSON.parse(body)) : reject(new Stop(`Upload of ${name} failed: GitHub ${res.statusCode} ${body.slice(0, 200)}`)); });
+    });
+    req.on('error', e => reject(new Stop(`Upload of ${name} failed: ${e.message}. Run the same command again to resume.`)));
+    let sent = 0, shown = -1;
+    fs.createReadStream(file).on('data', chunk => {
+      sent += chunk.length; const pct = Math.floor(sent * 100 / size);
+      if (pct !== shown && pct % 5 === 0) { shown = pct; process.stdout.write(`\r    ${pct}%`); }
+    }).on('error', reject).pipe(req);
+  });
+}
+
 async function downloadSha(url) {
   const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'zgs' } });
   if (!res.ok) stop(`Download check failed: ${url} → ${res.status}`);
@@ -214,10 +233,14 @@ async function publish() {
   if (!rel) rel = await gh('POST', '/releases', JSON.stringify({ tag_name: tag, target_commitish: git('rev-parse', 'HEAD'), name: `${app.name} ${build.version}`, body: notes, make_latest: 'false' }), { 'Content-Type': 'application/json' });
   for (const f of build.files) {
     let asset = rel.assets.find(a => a.name === f.upload);
+    if (asset && asset.state !== 'uploaded') {                        // a broken earlier upload: clear it and retry
+      say(c.dim(`  removing an unfinished earlier upload of ${f.upload}`));
+      await gh('DELETE', `/releases/assets/${asset.id}`); asset = null;
+    }
     if (asset && asset.size !== f.size) stop(`Release ${tag} already has a different ${f.upload}. Delete that file on GitHub and run again.`);
     if (!asset) {
       say(`  uploading ${f.upload} (${mb(f.size)})…`);
-      asset = await gh('POST', `${rel.upload_url.replace(/\{.*$/, '')}?name=${encodeURIComponent(f.upload)}`, fs.readFileSync(f.full), { 'Content-Type': 'application/octet-stream' });
+      asset = await uploadAsset(rel.upload_url, f.full, f.upload);
     }
     f.url = asset.browser_download_url;
   }
