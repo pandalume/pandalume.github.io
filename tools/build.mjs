@@ -6,7 +6,9 @@
 // broken edit can never reach the live site.
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, PLATFORMS, KINDS, loadData, latestFor, androidFeed, windowsFeed, appUrl } from './lib.mjs';
+import { createRequire } from 'node:module';
+import { ROOT, PLATFORMS, KINDS, loadData, latestFor, androidFeed, windowsFeed, appUrl, timeline } from './lib.mjs';
+const qrcode = createRequire(import.meta.url)('./vendor/qrcode.cjs');   // MIT, Kazuhiko Arase
 
 const args = process.argv.slice(2);
 const opt = n => { const i = args.indexOf(n); return i < 0 ? null : args[i + 1]; };
@@ -51,7 +53,7 @@ const appCount = app => (app.releases || []).reduce((t, r) => t + r.files.reduce
 
 const LOGO = `<svg viewBox="0 0 40 40" width="36" height="36" aria-hidden="true"><defs><linearGradient id="zg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#73E6D8"/><stop offset=".45" stop-color="#818CF8"/><stop offset=".75" stop-color="#C084FC"/><stop offset="1" stop-color="#F472B6"/></linearGradient></defs><rect x="1" y="1" width="38" height="38" rx="11" fill="#0b0f17" stroke="url(#zg)" stroke-opacity=".55"/><path d="M11 12h13L11 28h13" fill="none" stroke="url(#zg)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M33 15.5a6 6 0 1 0 0 9V21h-3.5" fill="none" stroke="url(#zg)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-function page({ title, description, body, noindex = false, canonical = '' }) {
+function page({ title, description, body, noindex = false, canonical = '', image = '' }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -62,22 +64,28 @@ function page({ title, description, body, noindex = false, canonical = '' }) {
 <meta name="description" content="${esc(description)}">
 ${noindex ? '<meta name="robots" content="noindex">\n' : ''}${canonical ? `<link rel="canonical" href="${esc(canonical)}">\n` : ''}<meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="${esc(site.name)}">
+${canonical ? `<meta property="og:url" content="${esc(canonical)}">\n` : ''}<meta property="og:image" content="${esc(image || site.baseUrl + '/assets/og.png')}">
+<meta name="twitter:card" content="summary">
+<link rel="alternate" type="application/atom+xml" title="${esc(site.name)}: what's new" href="/feed.xml">
 <meta name="theme-color" content="#070a0f">
 <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/site.css">
 <script src="/assets/site.js" defer></script>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="top"><div class="wrap top-in">
   <a class="brand" href="/">${LOGO}<span><b class="iri-text">ZENITH GEN</b><small>ORBIT</small></span></a>
-  <nav><a href="/#apps">Apps</a><a href="/install/">Install help</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a></nav>
+  <nav><a href="/#apps">Apps</a><a href="/updates/">What's new</a><a href="/install/">Install help</a></nav>
 </div></header>
-<main class="wrap">
+<main class="wrap" id="main">
 ${body}
 </main>
 <footer class="wrap foot">
   <p>No ads. No tracking. No cookies.</p>
-  <p><a href="/">Home</a><a href="/install/">Install help</a><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a><a href="mailto:${esc(site.contact)}">Contact</a></p>
+  <p><a href="/">Home</a><a href="/updates/">What's new</a><a href="/install/">Install help</a><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a><a href="mailto:${esc(site.contact)}">Contact</a></p>
   <p class="muted">© ${new Date().getUTCFullYear()} ${esc(site.developer)} · ${esc(site.name)}</p>
 </footer>
 </body>
@@ -85,21 +93,40 @@ ${body}
 `;
 }
 
+/** QR code as an inline SVG (built once at build time; no script needed to show it). */
+function qrSvg(text, px = 148) {
+  const q = qrcode(0, 'M'); q.addData(text); q.make();
+  const n = q.getModuleCount(), m = 2, size = n + m * 2;
+  let d = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (q.isDark(y, x)) d += `M${x + m} ${y + m}h1v1h-1z`;
+  return `<svg class="qr" viewBox="0 0 ${size} ${size}" width="${px}" height="${px}" role="img" aria-label="QR code"><rect width="${size}" height="${size}" fill="#fff"/><path d="${d}" fill="#070a0f"/></svg>`;
+}
+const vid = v => 'v' + v;                                              // anchor id for a version
+// Link previews (WhatsApp etc.) need PNG/JPG: content/apps/<id>/share.png (1200×630) if present, else the site card.
+const shareImage = app => exists(path.join(CONTENT, 'apps', app.id, 'share.png')) ? `${site.baseUrl}/apps/${app.id}/share.png` : '';
+const releaseRow = ({ app, r }) => `<li><a class="upd" href="/apps/${app.id}/#${vid(r.version)}">
+  <img class="icon" src="/apps/${app.id}/icon.webp" alt="" width="44" height="44">
+  <span><b>${esc(app.name)} ${esc(r.version)}</b><span class="muted small"> · ${date(r.date)}</span><br><span class="small">${esc(r.notes)}</span></span></a></li>`;
+
 const chips = app => Object.keys(app.platforms).map(p => `<span class="chip">${PLATFORMS[p]}</span>`).join('');
 
 // ---------- home ----------
 function home() {
+  const plats = [...new Set(listed.flatMap(a => Object.keys(a.platforms)))];
+  const filters = listed.length >= 4 && plats.length > 1 ? `<div class="filters" role="group" aria-label="Filter by platform">
+  <button type="button" class="chip-btn on" data-filter="">All</button>${plats.map(p => `<button type="button" class="chip-btn" data-filter="${p}">${PLATFORMS[p]}</button>`).join('')}</div>` : '';
   const cards = listed.map(a => {
     const latest = (a.releases || []).find(r => r.status === 'live');
-    return `<a class="card app-card" href="/apps/${a.id}/">
+    return `<a class="card app-card${latest ? '' : ' soon'}" href="/apps/${a.id}/" data-platforms="${Object.keys(a.platforms).join(' ')}">
   <img class="icon" src="/apps/${a.id}/icon.webp" alt="" width="64" height="64">
   <div><h3>${esc(a.name)}</h3><p class="muted small">${esc(a.category || '')}</p></div>
   <p class="tag">${esc(a.tagline)}</p>
-  <div class="chips">${chips(a)}${latest ? `<span class="chip ghost">v${esc(latest.version)}</span>` : '<span class="chip ghost">Coming soon</span>'}</div>
+  <div class="chips">${chips(a)}${latest ? `<span class="chip ghost">v${esc(latest.version)}</span>` : '<span class="chip soon-chip">Coming soon</span>'}</div>
 </a>`;
   }).join('\n');
+  const recent = timeline(listed).slice(0, 3);
   return page({
-    title: `${site.name}: apps`,
+    title: `${site.name}: apps and games by ${site.developer}`,
     description: site.tagline,
     canonical: site.baseUrl + '/',
     body: `<section class="hero">
@@ -107,8 +134,9 @@ function home() {
   <h1>Apps and games by <span class="iri-text">${esc(site.developer)}</span>.</h1>
   <p>Small, private apps made by one developer. No ads, no tracking. Download them here directly, always the newest version, with every older one kept.</p>
 </section>
-<section id="apps"><h2 class="sec">Apps</h2>
+<section id="apps"><div class="sec-row"><h2 class="sec">Apps</h2>${filters}</div>
 <div class="grid">${cards || '<p class="muted">Apps are on their way.</p>'}</div></section>
+${recent.length ? `<section><div class="sec-row"><h2 class="sec">Latest updates</h2><a class="small" href="/updates/">All updates →</a></div><ul class="updates">${recent.map(releaseRow).join('')}</ul></section>` : ''}
 <section class="principles">
   <div><b>No ads</b><span>None, in any app.</span></div>
   <div><b>No tracking</b><span>No analytics, no cookies, on this site or in the apps.</span></div>
@@ -116,6 +144,44 @@ function home() {
   <div><b>Checkable downloads</b><span>Every file lists its SHA-256 fingerprint.</span></div>
 </section>`
   });
+}
+
+// ---------- what's new (all public releases) + Atom feed ----------
+function updatesPage() {
+  const items = timeline(listed);
+  const byMonth = Map.groupBy ? Map.groupBy(items, i => i.r.date.slice(0, 7)) : items.reduce((m, i) => m.set(i.r.date.slice(0, 7), [...(m.get(i.r.date.slice(0, 7)) || []), i]), new Map());
+  const month = ym => new Date(ym + '-01T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  return page({
+    title: `What's new · ${site.name}`,
+    description: `Every new version of apps by ${site.developer}.`,
+    canonical: site.baseUrl + '/updates/',
+    body: `<section class="prose wide"><h1>What's new</h1>
+<p class="muted">Every release, newest first. Follow along without an account: add <a href="/feed.xml">this feed</a> to any feed reader app.</p>
+${items.length ? [...byMonth].map(([ym, list]) => `<h2 class="sec">${month(ym)}</h2><ul class="updates">${list.map(releaseRow).join('')}</ul>`).join('') : '<p>No releases yet.</p>'}</section>`
+  });
+}
+function atomFeed() {
+  const items = timeline(listed).slice(0, 50);
+  const x = s => esc(s);
+  const updated = items[0] ? items[0].r.date : site.privacyUpdated;
+  return `<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>${x(site.name)}: what's new</title>
+  <subtitle>${x(site.tagline)}</subtitle>
+  <link href="${site.baseUrl}/feed.xml" rel="self"/>
+  <link href="${site.baseUrl}/updates/"/>
+  <id>${site.baseUrl}/feed.xml</id>
+  <updated>${updated}T00:00:00Z</updated>
+  <author><name>${x(site.developer)}</name></author>
+${items.map(({ app, r }) => `  <entry>
+    <title>${x(app.name)} ${x(r.version)}</title>
+    <link href="${appUrl(site, app)}#${vid(r.version)}"/>
+    <id>${site.baseUrl}/apps/${app.id}/#${vid(r.version)}</id>
+    <updated>${r.date}T00:00:00Z</updated>
+    <summary>${x(r.notes)}</summary>
+  </entry>`).join('\n')}
+</feed>
+`;
 }
 
 // ---------- app page ----------
@@ -129,50 +195,75 @@ function hashes(files) {
 }
 
 function appPage(app) {
-  const panels = Object.entries(app.platforms).map(([p, info]) => {
-    const r = latestFor(app, p);
+  const plats = Object.keys(app.platforms);
+  const latestAny = (app.releases || []).find(r => r.status === 'live');
+  const total = appCount(app);
+  const primaryFile = p => { const r = latestFor(app, p); return r && r.files.find(f => KINDS[f.kind] === p); };
+
+  const panels = plats.map(p => {
+    const info = app.platforms[p], r = latestFor(app, p);
     const files = r ? r.files.filter(f => KINDS[f.kind] === p) : [];
+    const short = `${site.baseUrl}/get/${app.id}/${p}/`;
     return `<div class="card dl" data-platform="${p}">
   <div class="dl-head"><h3>${PLATFORMS[p]}</h3><span class="muted small">${esc(info.requires || '')}</span></div>
   ${r ? `<p class="ver">Version ${esc(r.version)} · ${date(r.date)}</p>
-  <div class="btns">${files.map((f, i) => fileButton(f, i === 0)).join('')}</div>
+  <div class="dl-body"><div class="dl-main"><div class="btns">${files.map((f, i) => fileButton(f, i === 0)).join('')}</div>
   <p class="notes"><b>What's new:</b> ${esc(r.notes)}</p>
   ${hashes(files)}
-  <p class="small"><a href="/install/#${p}">How to install on ${PLATFORMS[p]}</a></p>`
-    : '<p class="muted">No download yet.</p>'}
+  <p class="small"><a href="/install/#${p}">How to install on ${PLATFORMS[p]}</a> · <button type="button" class="linkish copy" data-copy="${short}" data-done="Link copied">Copy download link</button></p></div>
+  ${p === 'android' ? `<figure class="qr-box">${qrSvg(short)}<figcaption>On a computer? Scan with your phone to download.</figcaption></figure>` : ''}</div>`
+    : '<p class="muted">No download yet. Check back soon.</p>'}
 </div>`;
   }).join('\n');
 
-  const shots = (app.screenshots || []).length ? `<section><h2 class="sec">Screenshots</h2><div class="shots">${app.screenshots.map((s, i) =>
-    `<img src="/apps/${app.id}/shots/${esc(s)}" alt="${esc(app.name)} screenshot ${i + 1}" loading="lazy" width="270">`).join('')}</div></section>` : '';
+  const facts = [
+    latestAny && ['Version', latestAny.version],
+    latestAny && ['Updated', date(latestAny.date)],
+    ...plats.map(p => primaryFile(p) && [plats.length > 1 ? `${PLATFORMS[p]} size` : 'Size', mb(primaryFile(p).size)]),
+    ...plats.map(p => app.platforms[p].requires && [plats.length > 1 ? `${PLATFORMS[p]}` : 'Requires', app.platforms[p].requires.replace(' or newer', '+')]),
+    total && ['Downloads', num(total)]
+  ].filter(Boolean);
+
+  const shots = (app.screenshots || []).length ? `<section><h2 class="sec">Screenshots</h2><div class="shots" data-gallery>${app.screenshots.map((s, i) =>
+    `<button type="button" class="shot" aria-label="Enlarge screenshot ${i + 1}"><img src="/apps/${app.id}/shots/${esc(s)}" alt="${esc(app.name)} screenshot ${i + 1}" loading="lazy" width="220"></button>`).join('')}</div></section>` : '';
 
   const about = `<section><h2 class="sec">About</h2>${(app.description || []).map(p => `<p>${esc(p)}</p>`).join('')}
 ${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}</section>`;
 
-  const versions = (app.releases || []).length ? `<section><h2 class="sec">All versions</h2><ol class="versions">${app.releases.map(r => `<li class="${r.status}">
+  const verItem = r => `<li class="${r.status}" id="${vid(r.version)}">
   <div class="vrow"><b>${esc(r.version)}</b><span class="muted small">${date(r.date)}</span>${r.status === 'pulled' ? '<span class="chip warn">Pulled</span>' : ''}</div>
   <p>${esc(r.notes)}</p>
   ${(r.changes || []).length ? `<ul>${r.changes.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
   ${r.status === 'pulled' ? `<p class="small warn-text">Withdrawn: ${esc(r.pulledReason)}</p>` : `<p class="small files">${r.files.map(f =>
     `<a href="${esc(f.url)}">${esc(f.name)}</a> <span class="muted">${mb(f.size)}${counts[f.url] != null ? ` · ${num(counts[f.url])} downloads` : ''}</span>`).join('<br>')}</p>${hashes(r.files)}`}
-</li>`).join('')}</ol></section>` : '';
+</li>`;
+  const rel = app.releases || [], SHOW = 3;
+  const versions = rel.length ? `<section><h2 class="sec">Version history</h2><ol class="versions">${rel.slice(0, SHOW).map(verItem).join('')}</ol>
+${rel.length > SHOW ? `<details class="older"><summary>Show ${rel.length - SHOW} older version${rel.length - SHOW > 1 ? 's' : ''}</summary><ol class="versions">${rel.slice(SHOW).map(verItem).join('')}</ol></details>` : ''}</section>` : '';
 
-  const total = appCount(app);
+  const bar = plats.map(p => { const f = primaryFile(p); return f ? `<div class="getbar" data-platform="${p}" hidden>
+  <img class="icon" src="/apps/${app.id}/icon.webp" alt="" width="36" height="36"><span><b>${esc(app.name)}</b><small>${esc(latestFor(app, p).version)} · ${mb(f.size)}</small></span>
+  <a class="btn btn-iri" href="${esc(f.url)}">${p === 'android' ? 'Download' : 'Get for Windows'}</a></div>` : ''; }).join('');
+
   return page({
     title: `${app.name} · ${site.name}`,
-    description: app.tagline,
+    description: `${app.tagline} By ${app.developer || site.developer}.`,
     noindex: app.visibility !== 'public',
     canonical: appUrl(site, app),
+    image: shareImage(app),
     body: `<section class="app-head">
   <img class="icon big" src="/apps/${app.id}/icon.webp" alt="" width="96" height="96">
-  <div><h1>${esc(app.name)}</h1><p class="by">by <b>${esc(app.developer || site.developer)}</b> <span class="muted">· Published on ${esc(site.name)}</span></p><p class="tag">${esc(app.tagline)}</p>
-  <div class="chips">${chips(app)}${app.category ? `<span class="chip ghost">${esc(app.category)}</span>` : ''}${total ? `<span class="chip ghost">${num(total)} downloads</span>` : ''}</div></div>
+  <div class="app-title"><h1>${esc(app.name)}</h1><p class="by">by <b>${esc(app.developer || site.developer)}</b> <span class="muted">· Published on ${esc(site.name)}</span></p><p class="tag">${esc(app.tagline)}</p>
+  <div class="chips">${chips(app)}${app.category ? `<span class="chip ghost">${esc(app.category)}</span>` : ''}</div></div>
+  <button type="button" class="share-btn" data-share-url="${appUrl(site, app)}" data-share-title="${esc(app.name)}" data-share-text="${esc(app.tagline)}">Share</button>
 </section>
+${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
 <section class="dls">${panels}</section>
 ${shots}
 ${about}
 ${versions}
-<p class="small"><a href="/apps/${app.id}/privacy/">${esc(app.name)} privacy policy</a> · <a href="/apps/${app.id}/terms/">Terms of use</a></p>`
+<p class="small"><a href="/apps/${app.id}/privacy/">${esc(app.name)} privacy policy</a> · <a href="/apps/${app.id}/terms/">Terms of use</a></p>
+${bar}`
   });
 }
 
@@ -210,6 +301,7 @@ function install() {
     canonical: site.baseUrl + '/install/',
     body: `<article class="prose"><h1>Install help</h1>
 <p>These apps come straight from the developer instead of an app store, so your phone or PC asks you to confirm the first time. That's expected.</p>
+<p class="tip">Looking on a computer but want the app on your phone? Open the app's page and scan its QR code with your phone's camera.</p>
 <h2 id="android">Android</h2>
 <ol>
 <li>Tap <b>Download APK</b> on the app's page. Your browser may warn that the file could be harmful. Tap <b>Download anyway</b>.</li>
@@ -270,7 +362,9 @@ write('index.html', home());
 write('install/index.html', install());
 write('privacy.html', docPage('privacy'));
 write('terms.html', docPage('terms'));
-write('404.html', page({ title: `Not found · ${site.name}`, description: 'Page not found', noindex: true, body: '<section class="hero"><h1>Page not found</h1><p><a href="/">Back to all apps</a></p></section>' }));
+write('404.html', page({ title: `Not found · ${site.name}`, description: 'Page not found', noindex: true, body: `<section class="hero"><h1>Page not found</h1><p>That page doesn't exist, or it moved.</p></section><ul class="updates">${listed.map(a => `<li><a class="upd" href="/apps/${a.id}/"><img class="icon" src="/apps/${a.id}/icon.webp" alt="" width="44" height="44"><span><b>${esc(a.name)}</b><br><span class="small">${esc(a.tagline)}</span></span></a></li>`).join('')}</ul><p><a href="/">All apps</a></p>` }));
+write('updates/index.html', updatesPage());
+write('feed.xml', atomFeed());
 
 const catalog = [];
 for (const app of apps) {
@@ -297,7 +391,7 @@ for (const [rel, id] of Object.entries(site.legacyFeeds || {})) {
 }
 
 write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${site.baseUrl}/sitemap.xml\n`);
-const urls = ['/', '/install/', '/privacy.html', '/terms.html', ...listed.flatMap(a => [`/apps/${a.id}/`, `/apps/${a.id}/privacy/`, `/apps/${a.id}/terms/`])];
+const urls = ['/', '/updates/', '/install/', '/privacy.html', '/terms.html', ...listed.flatMap(a => [`/apps/${a.id}/`, `/apps/${a.id}/privacy/`, `/apps/${a.id}/terms/`])];
 write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${site.baseUrl}${u}</loc></url>`).join('\n')}\n</urlset>\n`);
 
 console.log(`Built ${apps.length} app page(s) (${listed.length} listed) into ${path.relative(ROOT, OUT) || OUT}`);

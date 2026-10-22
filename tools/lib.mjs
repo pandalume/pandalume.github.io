@@ -60,6 +60,7 @@ export function validate(site, apps) {
       if (r.status === 'pulled' && !r.pulledReason) rv('pulled releases need pulledReason');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date || '')) rv('date must be YYYY-MM-DD');
       if (!r.notes || r.notes.length > NOTES_MAX) rv(`notes are required, at most ${NOTES_MAX} characters`);
+      if (r.changes != null && (!Array.isArray(r.changes) || r.changes.some(c => typeof c !== 'string' || !c.trim() || c.length > 300))) rv('changes must be a list of short lines (max 300 characters each)');
       if (!r.files?.length) rv('needs at least one file');
       for (const f of r.files || []) {
         if (!KINDS[f.kind]) rv(`file ${f.name}: kind must be apk, setup or portable`);
@@ -107,4 +108,18 @@ export function windowsFeed(site, app) {
 export function releaseTag(app, version) { return `${app.id}-${version}`; }
 export function assetUrl(site, app, version, name) {
   return `https://github.com/${site.repo}/releases/download/${releaseTag(app, version)}/${encodeURIComponent(name)}`;
+}
+
+/** Reads the "## Pending policy changes" section of a Studio Standards sheet. Returns the
+ *  pending lines, or [] when the section says "(none)" or is empty. */
+export function pendingPolicyChanges(markdown) {
+  const m = /^##\s+Pending policy changes\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(markdown);
+  if (!m) return [];
+  return m[1].split(/\r?\n/).map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l && !/^\(none\)$/i.test(l));
+}
+
+/** Every live release across apps, newest first (for the What's new page and feed). */
+export function timeline(apps) {
+  return apps.flatMap(app => (app.releases || []).filter(r => r.status === 'live').map(r => ({ app, r })))
+    .sort((a, b) => b.r.date.localeCompare(a.r.date) || cmpVersion(b.r.version, a.r.version));
 }

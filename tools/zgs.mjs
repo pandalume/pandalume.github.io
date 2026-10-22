@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// zgs: Zenith Gen Studio publisher. Runs on your PC from the hub repo folder.
+// zgs: Zenith Gen Orbit publisher. Runs on your PC from the hub repo folder.
 //
-//   node tools/zgs.mjs publish <app> [--dry-run] [--notes "…"] [--platform android|windows] [--yes]
+//   node tools/zgs.mjs                    menu: shows every app and which have a new build ready
+//   node tools/zgs.mjs publish <app> [--dry-run] [--notes "…"] [--changes "a | b"] [--platform android|windows] [--yes]
 //   node tools/zgs.mjs publish <app> --backfill --from "<folder>" --date YYYY-MM-DD --notes "…"
 //   node tools/zgs.mjs pull <app> <version> --reason "…" [--delete-files] [--yes]
 //   node tools/zgs.mjs status [app]
@@ -16,7 +17,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import readline from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
-import { ROOT, KINDS, NOTES_MAX, loadData, readJson, writeJson, validate, cmpVersion, latestFor, releaseTag, androidFeed, windowsFeed } from './lib.mjs';
+import { ROOT, KINDS, NOTES_MAX, loadData, readJson, writeJson, validate, cmpVersion, latestFor, releaseTag, androidFeed, windowsFeed, pendingPolicyChanges } from './lib.mjs';
 
 const CONFIG = readJson(path.join(ROOT, 'tools', 'zgs.config.json'));
 const [cmd, ...rest] = process.argv.slice(2);
@@ -161,6 +162,7 @@ async function publish() {
   const folder = flags.from || path.join(CONFIG.finishedApps, CONFIG.apps[app.id] || stop(`Add "${app.id}" to tools/zgs.config.json (its folder under Finished Apps).`));
   const backfill = !!flags.backfill;
   if (backfill && !flags.from) stop('--backfill needs --from "<folder with the old build>".');
+  policyGuard(app);
 
   say(c.b(`\n${app.name}: checking ${folder}`));
   const build = findBuild(app, folder);
@@ -178,9 +180,14 @@ async function publish() {
   if (!notes) notes = await ask(`One line of what's new (max ${NOTES_MAX} chars): `);
   if (!notes) stop('Notes are required. Phones show them in the update bar.');
   if (notes.length > NOTES_MAX) stop(`Notes are ${notes.length} characters; the limit is ${NOTES_MAX}.`);
+  let changes = typeof flags.changes === 'string' ? flags.changes.split('|').map(x => x.trim()).filter(Boolean) : [];
+  if (!changes.length && typeof flags.notes !== 'string' && !flags.yes) {
+    say(c.dim('More details for the version history (optional). One per line; press Enter on an empty line to finish.'));
+    for (let line; (line = await ask('  • ')) && changes.length < 20;) changes.push(line);
+  }
   const date = backfill ? (flags.date || stop('--backfill needs --date YYYY-MM-DD')) : today();
 
-  const release = { version: build.version, ...(build.code != null && { code: build.code }), date, status: 'live', notes, files: [] };
+  const release = { version: build.version, ...(build.code != null && { code: build.code }), date, status: 'live', notes, ...(changes.length && { changes }), files: [] };
   // Check the finished data would be valid *before* touching GitHub.
   const preview = [...all, { ...release, files: build.files.map(f => ({ kind: f.kind, name: f.upload, url: 'https://example.invalid/x', size: f.size, sha256: f.sha256 })) }]
     .sort((a, b) => cmpVersion(b.version, a.version));
@@ -190,6 +197,7 @@ async function publish() {
   say(`\n  ${c.b(app.name + ' ' + build.version)}${build.code != null ? ` (versionCode ${build.code})` : ''}  ·  ${date}${backfill ? '  ·  history only' : ''}`);
   for (const f of build.files) say(`  ${f.kind.padEnd(8)} ${f.name}  ${mb(f.size)}\n           sha256 ${c.dim(f.sha256)}`);
   say(`  notes    ${notes}`);
+  for (const ch of changes) say(`           • ${ch}`);
   if (app.platforms.android && build.code != null) say(`  ${c.ok('✓')} signed with the ${app.name} release key`);
   if (flags['dry-run']) { say(c.ok('\nDry run: all checks passed. Nothing was uploaded.')); return; }
   if (!(await confirm('\nPublish this?'))) stop('Cancelled. Nothing changed.');
@@ -230,7 +238,7 @@ async function publish() {
   git('commit', '--quiet', '-m', `${backfill ? 'Add' : 'Publish'} ${app.name} ${build.version}`);
   pushWithRetry();
   say(c.ok(`\nPushed. The site rebuilds in about a minute.`));
-  if (!backfill) await waitLive(app, build);
+  if (!backfill) await waitLive(app, { ...build, notes });
 }
 
 function pushWithRetry() {
@@ -255,6 +263,9 @@ async function waitLive(app, build) {
   say(c.ok(` live.`));
   say(`\n${c.b(`${app.name} ${build.version} is out.`)} ${site.baseUrl}/apps/${app.id}/`);
   if (plats.includes('android')) say('Phones see it at their next daily check, or straight away via Help › Check for updates.');
+  const link = plats.includes('android') ? `${site.baseUrl}/get/${app.id}/android/` : `${site.baseUrl}/apps/${app.id}/`;
+  say(c.dim('\nReady to paste (WhatsApp, Telegram…):'));
+  say(`${app.name} ${build.version} is out! ${build.notes}\nAlready have it? Open the app and tap Update.\nNew to it? ${link}`);
 }
 
 async function pull() {
@@ -324,9 +335,48 @@ async function verify() {
   if (bad) process.exitCode = 1;
 }
 
+/** Stops a publish when the app's policy isn't ready (Studio Standards workflow). */
+function policyGuard(app) {
+  if (app.visibility === 'private') stop(`${app.name} is private. Its files would still be public on GitHub. Set "visibility" to "unlisted" or "public" first.`);
+  if (!fs.existsSync(path.join(ROOT, 'content', 'apps', app.id, 'privacy.html')))
+    stop(`${app.name} has no privacy policy section yet. Ask the hub chat: "add ${app.name} to the hub".`);
+  const sheet = CONFIG.standardsDir && path.join(CONFIG.standardsDir, `${app.name}.md`);
+  if (!sheet || !fs.existsSync(sheet)) { say(c.dim(`(No Studio Standards sheet found for ${app.name}; skipping the pending-changes check.)`)); return; }
+  const pending = pendingPolicyChanges(fs.readFileSync(sheet, 'utf8'));
+  if (pending.length) stop(`${app.name} has pending policy changes in Studio Standards:\n  - ${pending.join('\n  - ')}\nAsk the hub chat to "update ${app.name}'s policy", then publish.`);
+}
+
+/** No command: list apps, what's live and what's waiting, then publish the one you pick. */
+async function menu() {
+  const rows = [];
+  for (const app of DATA().apps) {
+    if (!CONFIG.apps[app.id] || app.visibility === 'private') continue;
+    const live = (app.releases || []).find(r => r.status === 'live')?.version || '-';
+    let state, ready = false;
+    try {
+      const b = findBuild(app, path.join(CONFIG.finishedApps, CONFIG.apps[app.id]));
+      if ((app.releases || []).some(r => r.version === b.version)) state = c.dim('up to date');
+      else if (live === '-' || cmpVersion(b.version, live) > 0) { state = c.ok(`${b.version} ready to publish`); ready = true; }
+      else state = c.dim(`folder has ${b.version} (older)`);
+    } catch (e) { if (!(e instanceof Stop)) throw e; state = c.bad(e.message.split('\n')[0]); }
+    rows.push({ app, live, state, ready });
+  }
+  say(c.b('\nZenith Gen Orbit: publish\n'));
+  rows.forEach((r, i) => say(`  ${String(i + 1).padStart(2)}. ${r.app.name.padEnd(18)} live ${r.live.padEnd(9)} ${r.state}`));
+  say(c.dim('\n  s = status and download counts, v = check all links, q = quit'));
+  const pick = (await ask('\nChoose: ')).toLowerCase();
+  if (pick === 's') return status();
+  if (pick === 'v') return verify();
+  const row = rows[Number(pick) - 1];
+  if (!row) return say('Nothing chosen.');
+  pos[0] = row.app.id;
+  return publish();
+}
+
 const COMMANDS = { publish, pull, status, verify };
 try {
-  if (!COMMANDS[cmd]) { say(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 9).map(l => l.replace(/^\/\/ ?/, '')).join('\n')); process.exitCode = cmd ? 1 : 0; }
+  if (!cmd) await menu();
+  else if (!COMMANDS[cmd]) { say(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 10).map(l => l.replace(/^\/\/ ?/, '')).join('\n')); process.exitCode = 1; }
   else await COMMANDS[cmd]();
 } catch (e) {
   if (e instanceof Stop) { console.error(c.bad('\n✗ ' + e.message)); process.exitCode = 1; }

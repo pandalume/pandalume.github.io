@@ -10,19 +10,22 @@ publish. `DESIGN.md` explains why it's built this way.
 ## Publish a new build
 
 1. Build as usual. The files land in `Finished Apps\<App>`.
-2. Double-click **Publish.cmd** and type the app id, or run:
-   ```
-   node tools/zgs.mjs publish bambowl --dry-run     # checks only
-   node tools/zgs.mjs publish bambowl
-   ```
-3. Type one line of what's new and confirm. zgs then does the rest:
-   - checks the version is newer and the versionCode is higher
-   - checks the APK is signed with the app's release key, not the debug key
-   - uploads the files to a GitHub release, downloads them again, and compares the SHA-256
-   - records the version in `data/apps/<app>.json`, commits and pushes
-   - waits until the live update feed shows the new version
+2. Double-click **Publish.cmd**. It lists every app, its live version, and which ones have a newer
+   build waiting. Type the number of the app to publish (`s` shows status and download counts,
+   `v` checks every download link).
+3. Type one line of what's new. You can add a few detail lines for the version history. Then confirm.
+   zgs does the rest:
+   - **Stops** if the app has no privacy section on the hub yet, or if its `Studio Standards` sheet
+     lists pending policy changes. Ask the hub chat first.
+   - Checks the version is newer and the versionCode is higher.
+   - Checks the APK is signed with the app's release key, not the debug key.
+   - Uploads the files to a GitHub release, downloads them again and compares the SHA-256.
+   - Records the version in `data/apps/<app>.json`, commits and pushes.
+   - Waits until the live update feed shows the new version, then prints a ready-to-paste
+     announcement for WhatsApp or Telegram.
 
 If anything fails, nothing public changes. Running the same command again resumes where it stopped.
+Command-line form: `node tools/zgs.mjs publish bambowl --dry-run` (checks only).
 
 | Task | Command |
 |---|---|
@@ -42,7 +45,7 @@ If anything fails, nothing public changes. Running the same command again resume
 |---|---|
 | `data/site.json` | Site name, address, contact email, and old URLs kept working (`legacyFeeds`) |
 | `data/apps/<id>.json` | One app: text, platforms, signing-key fingerprint, `visibility` (public, unlisted or private), and all releases |
-| `content/apps/<id>/` | `icon.webp`, `shots/*.webp`, and `privacy.html` (that app's section of the privacy policy) |
+| `content/apps/<id>/` | `icon.webp` (256×256), `share.png` (1200×630 link-preview card), `shots/*.webp`, `privacy.html` and `terms.html` (that app's sections of the policies) |
 | `content/privacy/` | Privacy policy sections shared by every app |
 | `tools/build.mjs` | Generates the site into `dist/`. `node tools/build.mjs --no-counts` to preview |
 | `tools/test.mjs` | Checks feeds, links, pulled versions and the rules. Runs before every deploy |
@@ -55,6 +58,8 @@ If anything fails, nothing public changes. Running the same command again resume
 - `/api/<id>/windows.json`: `{"name","notes","published","page","files":{"setup":{url,size,sha256},"portable":{…}}}`
 - `/apps/bambowl.json`: the old address that Bambowl 1.6.0 and earlier read. Same content as the new feed.
 - `/privacy.html`: linked from Google sign-in branding
+- `/get/<id>/android/`: short link (and QR code target) that always downloads the newest APK
+- `/updates/` and `/feed.xml`: every release, newest first, plus an Atom feed for feed readers
 
 ## Adding an app
 

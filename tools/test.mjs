@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { ROOT, validate, readJson } from './lib.mjs';
+import { ROOT, validate, readJson, pendingPolicyChanges } from './lib.mjs';
 
 const DATA = path.join(ROOT, 'test', 'data');
 const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'zg-test-'));
@@ -86,6 +86,25 @@ t('no third-party scripts, styles or fonts', () => {
   }
 });
 
+t('What\'s new page and Atom feed list live public releases only', () => {
+  const u = html('updates/index.html'), f = fs.readFileSync(out('feed.xml'), 'utf8');
+  assert.ok(u.includes('Bambowl 1.6.1') && !u.includes('1.6.2') && !u.includes('Quillix'));
+  assert.match(f, /^<\?xml[\s\S]*<entry>[\s\S]*Bambowl 1\.6\.1[\s\S]*<\/feed>\s*$/);
+  assert.ok(!f.includes('1.6.2'));
+});
+t('app page: QR for Android, facts strip, share image, version anchors, older versions folded', () => {
+  const a = html('apps/bambowl/index.html');
+  assert.match(a, /<svg class="qr"/);
+  assert.match(a, /<dl class="facts">[\s\S]*Version[\s\S]*1\.6\.1/);
+  assert.match(a, /og:image" content="https:\/\/[^"]+\/apps\/bambowl\/share\.png"/);
+  assert.ok(a.includes('id="v1.6.1"') && /<details class="older"><summary>Show 1 older version<\/summary>[\s\S]*id="v1.5.0"/.test(a));
+  assert.ok(fs.existsSync(out('apps/bambowl/share.png')) && fs.existsSync(out('assets/og.png')));
+});
+t('home shows latest updates and no filter row with few apps', () => {
+  const h = html('index.html');
+  assert.ok(h.includes('Latest updates') && !h.includes('data-filter='));
+});
+
 console.log('rules (bad data is refused before anything is written)');
 const good = appsData('bambowl');
 const bad = (name, mut, re) => t(name, () => {
@@ -97,6 +116,7 @@ bad('notes over 200 characters', a => { a.releases[0].notes = 'x'.repeat(201); }
 bad('missing hash', a => { a.releases[0].files[0].sha256 = ''; }, /sha256/);
 bad('duplicate version', a => { a.releases[1].version = a.releases[0].version; }, /duplicate version|newest first/);
 bad('pulled without reason', a => { delete a.releases[0].pulledReason; }, /pulledReason/);
+bad('changes must be short lines', a => { a.releases[1].changes = ['ok', '']; }, /changes must be/);
 bad('http download link', a => { a.releases[1].files[0].url = 'http://x/y.apk'; }, /https/);
 t('build refuses invalid data and leaves output untouched', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zg-bad-'));
@@ -110,4 +130,8 @@ t('build refuses invalid data and leaves output untouched', () => {
 function walk(d) { return fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]); }
 
 fs.rmSync(OUT, { recursive: true, force: true });
+t('pending policy changes are read from a Studio Standards sheet', () => {
+  assert.deepEqual(pendingPolicyChanges('## Data\n- a\n\n## Pending policy changes\n(none)\n'), []);
+  assert.deepEqual(pendingPolicyChanges('## Pending policy changes\r\n- Adds crash reports\r\n## Next\nx'), ['Adds crash reports']);
+});
 console.log(process.exitCode ? 'FAILED' : `all ${passed} checks passed`);

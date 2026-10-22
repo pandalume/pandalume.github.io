@@ -81,6 +81,22 @@
           "sha256": "830e8e9c0fd0ce212daad78bb4b8121b1565b6806c5121310b184b1bd9092020"
         }
       ]
+    },
+    {
+      "version": "1.5.0",
+      "code": 6,
+      "date": "2026-10-14",
+      "status": "live",
+      "notes": "Friends and chat",
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.5.0.apk",
+          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/bambowl-1.5.0/Bambowl-1.5.0.apk",
+          "size": 8030338,
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ]
     }
   ]
 }
