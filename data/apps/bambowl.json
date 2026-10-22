@@ -17,7 +17,11 @@
     "Optional AI tidy-up for messy recipe text",
     "Friends: share recipes and chat"
   ],
-  "screenshots": ["1.webp", "2.webp", "3.webp"],
+  "screenshots": [
+    "1.webp",
+    "2.webp",
+    "3.webp"
+  ],
   "platforms": {
     "android": {
       "package": "com.jon.bambowl",
@@ -25,5 +29,22 @@
       "requires": "Android 8.0 or newer"
     }
   },
-  "releases": []
+  "releases": [
+    {
+      "version": "1.6.0",
+      "code": 7,
+      "date": "2026-10-22",
+      "status": "live",
+      "notes": "Cooking mode with timers, a smarter grocery list and What can I cook?",
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.0.apk",
+          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/bambowl-1.6.0/Bambowl-1.6.0.apk",
+          "size": 8044997,
+          "sha256": "830e8e9c0fd0ce212daad78bb4b8121b1565b6806c5121310b184b1bd9092020"
+        }
+      ]
+    }
+  ]
 }
