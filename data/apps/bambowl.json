@@ -31,6 +31,28 @@
   },
   "releases": [
     {
+      "version": "1.6.1",
+      "code": 8,
+      "date": "2026-10-23",
+      "status": "live",
+      "notes": "Delete your account from the app, report people in Friends, and a refreshed Help & about.",
+      "changes": [
+        "Delete my account in Account › Google account",
+        "Report a person from their profile or chat",
+        "AI tidy-up is now for approved accounts only",
+        "Updates now come from Zenith Gen Orbit"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.1.apk",
+          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/bambowl-1.6.1/Bambowl-1.6.1.apk",
+          "size": 8046453,
+          "sha256": "fc84bb28a669af3cbbf951b5f2bec519104c8a34acf2d2d1c84e7292c676b33c"
+        }
+      ]
+    },
+    {
       "version": "1.6.0",
       "code": 7,
       "date": "2026-10-22",
