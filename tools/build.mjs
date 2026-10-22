@@ -69,7 +69,7 @@ ${noindex ? '<meta name="robots" content="noindex">\n' : ''}${canonical ? `<link
 </head>
 <body>
 <header class="top"><div class="wrap top-in">
-  <a class="brand" href="/">${LOGO}<span><b class="iri-text">ZENITH GEN</b><small>STUDIO</small></span></a>
+  <a class="brand" href="/">${LOGO}<span><b class="iri-text">ZENITH GEN</b><small>ORBIT</small></span></a>
   <nav><a href="/#apps">Apps</a><a href="/install/">Install help</a><a href="/privacy.html">Privacy</a></nav>
 </div></header>
 <main class="wrap">
@@ -78,7 +78,7 @@ ${body}
 <footer class="wrap foot">
   <p>No ads. No tracking. No cookies.</p>
   <p><a href="/">Home</a><a href="/install/">Install help</a><a href="/privacy.html">Privacy policy</a><a href="mailto:${esc(site.contact)}">Contact</a></p>
-  <p class="muted">© ${new Date().getUTCFullYear()} ${esc(site.name)}</p>
+  <p class="muted">© ${new Date().getUTCFullYear()} ${esc(site.developer)} · ${esc(site.name)}</p>
 </footer>
 </body>
 </html>
@@ -103,9 +103,9 @@ function home() {
     description: site.tagline,
     canonical: site.baseUrl + '/',
     body: `<section class="hero">
-  <span class="pill">✦ Made by one developer</span>
-  <h1>Apps without the noise.</h1>
-  <p>${esc(site.tagline)} Download them here directly, always the newest version, with every older one kept.</p>
+  <span class="pill">✦ ${esc(site.name)}</span>
+  <h1>Apps and games by <span class="iri-text">${esc(site.developer)}</span>.</h1>
+  <p>Small, private apps made by one developer. No ads, no tracking. Download them here directly, always the newest version, with every older one kept.</p>
 </section>
 <section id="apps"><h2 class="sec">Apps</h2>
 <div class="grid">${cards || '<p class="muted">Apps are on their way.</p>'}</div></section>
@@ -165,7 +165,7 @@ ${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>$
     canonical: appUrl(site, app),
     body: `<section class="app-head">
   <img class="icon big" src="/apps/${app.id}/icon.webp" alt="" width="96" height="96">
-  <div><h1>${esc(app.name)}</h1><p class="tag">${esc(app.tagline)}</p>
+  <div><h1>${esc(app.name)}</h1><p class="by">by <b>${esc(app.developer || site.developer)}</b> <span class="muted">· Published on ${esc(site.name)}</span></p><p class="tag">${esc(app.tagline)}</p>
   <div class="chips">${chips(app)}${app.category ? `<span class="chip ghost">${esc(app.category)}</span>` : ''}${total ? `<span class="chip ghost">${num(total)} downloads</span>` : ''}</div></div>
 </section>
 <section class="dls">${panels}</section>
@@ -189,7 +189,7 @@ function privacyAll() {
     description: `How ${site.name}'s apps handle your data.`,
     canonical: site.baseUrl + '/privacy.html',
     body: `<article class="prose"><h1>Privacy policy</h1><p class="muted">Last updated: ${date(site.privacyUpdated)}</p>
-<p>This policy covers the apps made by ${esc(site.name)}, a solo developer: ${esc(list)} (“the apps”).</p>
+<p>This policy covers the apps made by ${esc(site.developer)}, ${esc(site.developerAbout)}, and published on ${esc(site.name)}: ${esc(list)} (“the apps”). “We” and “us” mean ${esc(site.developer)}.</p>
 ${intro()}${apps.map(appPrivacy).join('')}${shared()}</article>`
   });
 }
@@ -199,7 +199,7 @@ function privacyApp(app) {
     description: `How ${app.name} handles your data.`,
     noindex: app.visibility !== 'public',
     body: `<article class="prose"><p class="small"><a href="/apps/${app.id}/">← ${esc(app.name)}</a></p><h1>${esc(app.name)} privacy policy</h1><p class="muted">Last updated: ${date(site.privacyUpdated)}</p>
-<p>${esc(app.name)} is made by ${esc(site.name)}, a solo developer.</p>
+<p>${esc(app.name)} is made by ${esc(site.developer)}, ${esc(site.developerAbout)}, and published on ${esc(site.name)}. “We” and “us” mean ${esc(site.developer)}.</p>
 ${intro()}${appPrivacy(app)}${shared()}</article>`
   });
 }

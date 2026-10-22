@@ -38,6 +38,7 @@ export function validate(site, apps) {
   const e = [], ids = new Set();
   const https = u => typeof u === 'string' && /^https:\/\/\S+$/.test(u);
   if (!https(site.baseUrl)) e.push('site.baseUrl must be an https URL');
+  if (!site.name || !site.developer) e.push('site.name (the storefront) and site.developer (the studio) are required');
   if (!site.repo || !/^[\w.-]+\/[\w.-]+$/.test(site.repo)) e.push('site.repo must be "owner/name"');
   for (const a of apps) {
     const w = m => e.push(`${a.id || a._file}: ${m}`);

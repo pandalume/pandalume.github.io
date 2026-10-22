@@ -1,6 +1,8 @@
 {
-  "name": "Zenith Gen Studio",
-  "tagline": "Small, private apps made by one developer. No ads, no tracking.",
+  "name": "Zenith Gen Orbit",
+  "developer": "TinyAi Studio",
+  "developerAbout": "an independent developer based in Kuala Lumpur, Malaysia",
+  "tagline": "Apps and games by TinyAi Studio. No ads, no tracking.",
   "baseUrl": "https://tinypanda-collab.github.io",
   "repo": "tinypanda-collab/tinypanda-collab.github.io",
   "contact": "tinyaiprojects@gmail.com",

@@ -55,10 +55,11 @@ t('unlisted pages are noindex and not on the home page', () => {
   assert.match(html('apps/quillix-note/index.html'), /noindex/);
   assert.ok(!html('index.html').includes('/apps/quillix-note/'));
 });
+t('app page credits the studio and the storefront', () => assert.match(html('apps/bambowl/index.html'), /by <b>TinyAi Studio<\/b>.*Published on Zenith Gen Orbit/));
 t('/get short link redirects to newest APK', () => assert.ok(html('get/bambowl/android/index.html').includes('Bambowl-1.6.1.apk')));
-t('privacy policy: new name, contact filled in, old name gone', () => {
+t('privacy policy: studio + storefront named, contact filled in, old name gone', () => {
   const p = html('privacy.html');
-  assert.ok(p.includes(site.contact)); assert.ok(!p.includes('{{')); assert.ok(!/T Panda/i.test(p));
+  assert.ok(p.includes(site.contact) && p.includes('made by TinyAi Studio') && p.includes('published on Zenith Gen Orbit')); assert.ok(!p.includes('{{')); assert.ok(!/T Panda/i.test(p));
 });
 t('every internal link and image resolves to a file', () => {
   for (const f of walk(OUT).filter(f => f.endsWith('.html'))) {

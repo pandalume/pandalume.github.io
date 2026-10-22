@@ -1,6 +1,6 @@
-# Zenith Gen Studio
+# Zenith Gen Orbit
 
-The public home for the apps. It has a page for each app with downloads, every older version,
+The storefront for the apps and games made by **TinyAi Studio**. It has a page for each app with downloads, every older version,
 install help, privacy policies, and the small "latest version" files the apps check for updates.
 
 Live at **https://tinypanda-collab.github.io**, a free GitHub Pages site built from this repo.
