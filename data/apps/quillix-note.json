@@ -1,0 +1,22 @@
+{
+  "id": "quillix-note",
+  "name": "Quillix Note",
+  "order": 2,
+  "visibility": "unlisted",
+  "category": "Productivity",
+  "tagline": "Notes and handwriting for Windows and Android.",
+  "description": [
+    "Quillix Note is a notebook for typed notes and handwriting. Your notes stay on your device, and sync between your devices when you sign in with Google."
+  ],
+  "features": [],
+  "screenshots": [],
+  "platforms": {
+    "windows": { "requires": "Windows 10 or 11, 64-bit" },
+    "android": {
+      "package": "com.jon.quillixnote",
+      "certSha256": "5079521508f07a99bf467b7f691ced39379fccf764b1f3251de8243234905260",
+      "requires": "Android 7.0 or newer"
+    }
+  },
+  "releases": []
+}

@@ -1,0 +1,17 @@
+dist/
+node_modules/
+# never commit signing material or secrets
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.properties
+.env*
+# builds live in GitHub Releases, not in git
+*.apk
+*.aab
+*.exe
+*.msi
+*.zip

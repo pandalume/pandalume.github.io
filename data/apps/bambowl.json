@@ -1,0 +1,29 @@
+{
+  "id": "bambowl",
+  "name": "Bambowl",
+  "order": 1,
+  "visibility": "public",
+  "category": "Food & cooking",
+  "tagline": "Recipes, meal plans and grocery lists, tidy and in one place.",
+  "description": [
+    "Bambowl keeps your recipes, cookbooks, weekly meal plan and grocery list on your phone. Save a recipe from a website, a video or a photo of a cookbook page, and Bambowl reads it into clean ingredients and steps.",
+    "Sign in with Google if you want your recipes on more than one phone. Everything else stays on the phone."
+  ],
+  "features": [
+    "Import recipes from links (recipe sites, YouTube, TikTok, Instagram, Facebook) or photos",
+    "Cooking mode with step timers",
+    "Weekly meal plan and a smart grocery list",
+    "\"What can I cook?\" from what you already have",
+    "Optional AI tidy-up for messy recipe text",
+    "Friends: share recipes and chat"
+  ],
+  "screenshots": ["1.webp", "2.webp", "3.webp"],
+  "platforms": {
+    "android": {
+      "package": "com.jon.bambowl",
+      "certSha256": "d6cdaf41650279af465d227329a3389c84a56996f1c8bb4762ced18a8b222704",
+      "requires": "Android 8.0 or newer"
+    }
+  },
+  "releases": []
+}

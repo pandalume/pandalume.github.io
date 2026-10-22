@@ -1,0 +1,11 @@
+{
+  "name": "Zenith Gen Studio",
+  "tagline": "Small, private apps made by one developer. No ads, no tracking.",
+  "baseUrl": "https://tinypanda-collab.github.io",
+  "repo": "tinypanda-collab/tinypanda-collab.github.io",
+  "contact": "tinyaiprojects@gmail.com",
+  "privacyUpdated": "2026-10-22",
+  "legacyFeeds": {
+    "apps/bambowl.json": "bambowl"
+  }
+}

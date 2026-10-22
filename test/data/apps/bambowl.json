@@ -1,0 +1,86 @@
+{
+  "id": "bambowl",
+  "name": "Bambowl",
+  "order": 1,
+  "visibility": "public",
+  "category": "Food & cooking",
+  "tagline": "Recipes, meal plans and grocery lists, tidy and in one place.",
+  "description": [
+    "Bambowl keeps your recipes, cookbooks, weekly meal plan and grocery list on your phone. Save a recipe from a website, a video or a photo of a cookbook page, and Bambowl reads it into clean ingredients and steps.",
+    "Sign in with Google if you want your recipes on more than one phone. Everything else stays on the phone."
+  ],
+  "features": [
+    "Import recipes from links (recipe sites, YouTube, TikTok, Instagram, Facebook) or photos",
+    "Cooking mode with step timers",
+    "Weekly meal plan and a smart grocery list",
+    "\"What can I cook?\" from what you already have",
+    "Optional AI tidy-up for messy recipe text",
+    "Friends: share recipes and chat"
+  ],
+  "screenshots": [
+    "1.webp",
+    "2.webp",
+    "3.webp"
+  ],
+  "platforms": {
+    "android": {
+      "package": "com.jon.bambowl",
+      "certSha256": "d6cdaf41650279af465d227329a3389c84a56996f1c8bb4762ced18a8b222704",
+      "requires": "Android 8.0 or newer"
+    }
+  },
+  "releases": [
+    {
+      "version": "1.6.2",
+      "code": 9,
+      "date": "2026-10-25",
+      "status": "pulled",
+      "pulledReason": "Crashes when opening the meal plan on Android 10.",
+      "notes": "Faster search",
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.2.apk",
+          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/bambowl-1.6.2/Bambowl-1.6.2.apk",
+          "size": 8044997,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    {
+      "version": "1.6.1",
+      "code": 8,
+      "date": "2026-10-23",
+      "status": "live",
+      "notes": "Updates now come from the Zenith Gen Studio site",
+      "changes": [
+        "Update check moved to the new site"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.1.apk",
+          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/bambowl-1.6.1/Bambowl-1.6.1.apk",
+          "size": 8044997,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    },
+    {
+      "version": "1.6.0",
+      "code": 7,
+      "date": "2026-10-21",
+      "status": "live",
+      "notes": "Cooking mode with timers, a smarter grocery list and What can I cook?",
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.0.apk",
+          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/bambowl-1.6.0/Bambowl-1.6.0.apk",
+          "size": 8044997,
+          "sha256": "830e8e9c0fd0ce212daad78bb4b8121b1565b6806c5121310b184b1bd9092020"
+        }
+      ]
+    }
+  ]
+}

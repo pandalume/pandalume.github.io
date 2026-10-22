@@ -1,0 +1,18 @@
+{
+  "id": "cypher-vault",
+  "name": "Cypher Vault",
+  "order": 3,
+  "visibility": "unlisted",
+  "category": "Security",
+  "tagline": "A password manager whose vault is encrypted on your device.",
+  "description": [
+    "Cypher Vault stores your passwords in a vault that is encrypted on your device with your master password. If you sign in, only the encrypted vault is backed up, so the stored copy can't be read without your master password.",
+    "Cypher Vault is still in development. Keep another copy of anything important."
+  ],
+  "features": [],
+  "screenshots": [],
+  "platforms": {
+    "windows": { "requires": "Windows 10 or 11, 64-bit" }
+  },
+  "releases": []
+}
