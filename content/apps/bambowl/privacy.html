@@ -3,18 +3,21 @@
 <li><b>Photos:</b> while you are signed in, a small copy of each recipe's main photo is stored with your synced data, readable only by your account. Gallery photos you add to a recipe stay on your phone.</li>
 <li><b>Friends:</b> if you use Friends, people you add can see your name, profile picture, profile level, badges and how many recipes you have, never the recipes themselves. Others can find you only by your exact email address or your Bambowl ID, and only after you accept their request do they become friends. Nobody can browse a list of users.</li>
 <li><b>Messages:</b> chat messages and recipes you send a friend are stored so both of you can read them, and only you two can read them. A shared recipe photo is deleted once your friend saves the recipe, or after 30 days at most. You can remove or block a friend at any time.</li>
+<li><b>Reporting a person:</b> if you report someone, we store and email to the developer: both people's email addresses and Bambowl names and IDs, the reason, any note you add (up to 500 characters), and the last 20 messages between you. This is used only to deal with the report and prevent abuse. A report is kept even if either account is later deleted, but it is no longer linked to the account.</li>
 <li><b>Alerts:</b> to tell you about new messages and friend requests while Bambowl is closed, your phone's notification address (a token from Google's Firebase Cloud Messaging) is stored with your account. The alert shows the sender's name and the start of the message. Signing out removes it.</li>
 <li><b>Recipe from a link:</b> when you import a link, Bambowl fetches that page (for example a recipe site, YouTube or TikTok) to read the recipe. This happens only when you ask.</li>
 <li><b>Facebook, Instagram and TikTok sign-ins:</b> if you sign in to these inside Bambowl's built-in browser, those sign-ins stay on your phone. We never receive your passwords or those accounts' data.</li>
 <li><b>Photo to text:</b> photos of recipes are read into text on your phone. They are not uploaded for this.</li>
-<li><b>AI tidy-up:</b> when you tap Tidy up, the recipe text you chose is sent to an AI model through OpenRouter, using your own OpenRouter key if you added one or the app's. Only that text is sent, and only when you tap.</li>
+<li><b>AI tidy-up:</b> available only to accounts the developer has approved. When you tap Tidy up, only the recipe text you chose is sent through Bambowl's server to a third-party AI service, which sends back the tidied text. Nothing is sent unless you tap.</li>
 <li><b>New accounts:</b> when someone signs in to Bambowl for the first time, the developer receives an email with that person's name and email address.</li>
+<li><b>Deleting your account:</b> in Bambowl, go to Account › Google account › Delete my account. This deletes at once your synced data, synced and shared photos, profile, friends, chats, alert registrations, AI access and your sign-in. Recipes stored on your phone stay until you erase them or uninstall the app. You can also email us to delete it (see below).</li>
+<li><b>Backups:</b> a copy of Bambowl's server database is saved each day on the developer's own computer and kept for 14 days, then deleted. So deleted data can remain in a backup for up to 14 days.</li>
 </ul>
 <h3>Services Bambowl uses</h3>
 <ul>
 <li><b>Google:</b> sign-in.</li>
-<li><b>Supabase</b> (servers in Singapore): accounts, synced data, synced main photos, friends and messages.</li>
+<li><b>Supabase</b> (servers in Singapore): accounts, synced data, synced main photos, friends, messages and reports.</li>
 <li><b>Google Firebase Cloud Messaging:</b> delivers alerts for friends' messages and requests.</li>
-<li><b>OpenRouter:</b> AI tidy-up, only for the text you choose.</li>
-<li><b>Resend:</b> sends the developer the new-account email.</li>
+<li><b>A third-party AI service</b>, reached through Bambowl's server: AI tidy-up for approved accounts, only for the text you choose.</li>
+<li><b>Resend:</b> sends the developer the new-account and report emails.</li>
 </ul>
