@@ -70,14 +70,14 @@ ${noindex ? '<meta name="robots" content="noindex">\n' : ''}${canonical ? `<link
 <body>
 <header class="top"><div class="wrap top-in">
   <a class="brand" href="/">${LOGO}<span><b class="iri-text">ZENITH GEN</b><small>ORBIT</small></span></a>
-  <nav><a href="/#apps">Apps</a><a href="/install/">Install help</a><a href="/privacy.html">Privacy</a></nav>
+  <nav><a href="/#apps">Apps</a><a href="/install/">Install help</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a></nav>
 </div></header>
 <main class="wrap">
 ${body}
 </main>
 <footer class="wrap foot">
   <p>No ads. No tracking. No cookies.</p>
-  <p><a href="/">Home</a><a href="/install/">Install help</a><a href="/privacy.html">Privacy policy</a><a href="mailto:${esc(site.contact)}">Contact</a></p>
+  <p><a href="/">Home</a><a href="/install/">Install help</a><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a><a href="mailto:${esc(site.contact)}">Contact</a></p>
   <p class="muted">© ${new Date().getUTCFullYear()} ${esc(site.developer)} · ${esc(site.name)}</p>
 </footer>
 </body>
@@ -172,35 +172,33 @@ ${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>$
 ${shots}
 ${about}
 ${versions}
-<p class="small"><a href="/apps/${app.id}/privacy/">${esc(app.name)} privacy policy</a></p>`
+<p class="small"><a href="/apps/${app.id}/privacy/">${esc(app.name)} privacy policy</a> · <a href="/apps/${app.id}/terms/">Terms of use</a></p>`
   });
 }
 
-// ---------- privacy ----------
-const intro = () => fill(read(path.join(CONTENT, 'privacy/intro.html')));
-const shared = () => fill(read(path.join(CONTENT, 'privacy/shared.html')));
-const appPrivacy = app => { const p = path.join(CONTENT, 'apps', app.id, 'privacy.html'); return exists(p) ? fill(read(p)) : ''; };
+// ---------- privacy policy + terms of use ----------
+// Each document = shared intro + one section per app + shared closing parts. The combined page
+// (/privacy.html, /terms.html) has every app's section; an app's own page has only its own.
+const DOCS = {
+  privacy: { title: 'Privacy policy', file: 'privacy', updated: () => site.privacyUpdated, intro: 'privacy/intro.html', outro: 'privacy/shared.html', path: '/privacy.html', sub: 'privacy',
+    lead: list => `This policy covers the apps made by ${esc(site.developer)}, ${esc(site.developerAbout)}, and published on ${esc(site.name)}: ${list} (“the apps”). “We” and “us” mean ${esc(site.developer)}.` },
+  terms: { title: 'Terms of use', file: 'terms', updated: () => site.termsUpdated, intro: null, outro: 'terms/shared.html', path: '/terms.html', sub: 'terms',
+    lead: list => `These terms apply when you use the apps made by ${esc(site.developer)}, ${esc(site.developerAbout)}, and published on ${esc(site.name)}: ${list} (“the apps”). “We” and “us” mean ${esc(site.developer)}.` }
+};
+const part = rel => { const p = path.join(CONTENT, rel); return exists(p) ? fill(read(p)) : ''; };
+const nameList = list => list.length > 1 ? list.slice(0, -1).join(', ') + ' and ' + list.at(-1) : list[0];
 
-function privacyAll() {
-  const names = apps.map(a => a.name);
-  const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names.at(-1) : names[0];
+function docPage(kind, app = null) {
+  const d = DOCS[kind], subject = app ? [app] : apps;
+  const title = app ? `${app.name} ${d.title.toLowerCase()}` : d.title;
   return page({
-    title: `Privacy policy · ${site.name}`,
-    description: `How ${site.name}'s apps handle your data.`,
-    canonical: site.baseUrl + '/privacy.html',
-    body: `<article class="prose"><h1>Privacy policy</h1><p class="muted">Last updated: ${date(site.privacyUpdated)}</p>
-<p>This policy covers the apps made by ${esc(site.developer)}, ${esc(site.developerAbout)}, and published on ${esc(site.name)}: ${esc(list)} (“the apps”). “We” and “us” mean ${esc(site.developer)}.</p>
-${intro()}${apps.map(appPrivacy).join('')}${shared()}</article>`
-  });
-}
-function privacyApp(app) {
-  return page({
-    title: `${app.name} privacy policy · ${site.name}`,
-    description: `How ${app.name} handles your data.`,
-    noindex: app.visibility !== 'public',
-    body: `<article class="prose"><p class="small"><a href="/apps/${app.id}/">← ${esc(app.name)}</a></p><h1>${esc(app.name)} privacy policy</h1><p class="muted">Last updated: ${date(site.privacyUpdated)}</p>
-<p>${esc(app.name)} is made by ${esc(site.developer)}, ${esc(site.developerAbout)}, and published on ${esc(site.name)}. “We” and “us” mean ${esc(site.developer)}.</p>
-${intro()}${appPrivacy(app)}${shared()}</article>`
+    title: `${title} · ${site.name}`,
+    description: `${d.title} for ${app ? app.name : `apps by ${site.developer}`}.`,
+    noindex: !!app && app.visibility !== 'public',
+    canonical: app ? `${appUrl(site, app)}${d.sub}/` : site.baseUrl + d.path,
+    body: `<article class="prose">${app ? `<p class="small"><a href="/apps/${app.id}/">← ${esc(app.name)}</a></p>` : ''}<h1>${esc(title)}</h1><p class="muted">Last updated: ${date(d.updated())}</p>
+<p>${d.lead(esc(nameList(subject.map(a => a.name))))}</p>
+${d.intro ? part(d.intro) : ''}${subject.map(a => part(`apps/${a.id}/${d.file}.html`)).join('')}${part(d.outro)}</article>`
   });
 }
 
@@ -270,14 +268,16 @@ if (site.domain) write('CNAME', site.domain + '\n');
 
 write('index.html', home());
 write('install/index.html', install());
-write('privacy.html', privacyAll());
+write('privacy.html', docPage('privacy'));
+write('terms.html', docPage('terms'));
 write('404.html', page({ title: `Not found · ${site.name}`, description: 'Page not found', noindex: true, body: '<section class="hero"><h1>Page not found</h1><p><a href="/">Back to all apps</a></p></section>' }));
 
 const catalog = [];
 for (const app of apps) {
   copyDir(path.join(CONTENT, 'apps', app.id), path.join(OUT, 'apps', app.id));
   write(`apps/${app.id}/index.html`, appPage(app));
-  write(`apps/${app.id}/privacy/index.html`, privacyApp(app));
+  write(`apps/${app.id}/privacy/index.html`, docPage('privacy', app));
+  write(`apps/${app.id}/terms/index.html`, docPage('terms', app));
   const feeds = {};
   const a = androidFeed(site, app), w = windowsFeed(site, app);
   if (a) { json(`api/${app.id}/android.json`, a); feeds.android = `${site.baseUrl}/api/${app.id}/android.json`; write(`get/${app.id}/android/index.html`, getPage(app, a.apk, 'for Android')); }
@@ -297,7 +297,7 @@ for (const [rel, id] of Object.entries(site.legacyFeeds || {})) {
 }
 
 write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${site.baseUrl}/sitemap.xml\n`);
-const urls = ['/', '/install/', '/privacy.html', ...listed.flatMap(a => [`/apps/${a.id}/`, `/apps/${a.id}/privacy/`])];
+const urls = ['/', '/install/', '/privacy.html', '/terms.html', ...listed.flatMap(a => [`/apps/${a.id}/`, `/apps/${a.id}/privacy/`, `/apps/${a.id}/terms/`])];
 write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${site.baseUrl}${u}</loc></url>`).join('\n')}\n</urlset>\n`);
 
 console.log(`Built ${apps.length} app page(s) (${listed.length} listed) into ${path.relative(ROOT, OUT) || OUT}`);

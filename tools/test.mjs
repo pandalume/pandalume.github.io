@@ -55,6 +55,16 @@ t('unlisted pages are noindex and not on the home page', () => {
   assert.match(html('apps/quillix-note/index.html'), /noindex/);
   assert.ok(!html('index.html').includes('/apps/quillix-note/'));
 });
+t('each app\'s policy covers only that app', () => {
+  const q = html('apps/quillix-note/privacy/index.html'), all = html('privacy.html');
+  assert.ok(q.includes('Quillix Note') && !/Bambowl|OpenRouter|Cypher Vault/.test(q.replace(/<header[\s\S]*?<\/header>|<footer[\s\S]*?<\/footer>/g, '')));
+  assert.ok(all.includes('<h2>Bambowl</h2>') && all.includes('<h2>Quillix Note</h2>') && all.includes('<h2>Cypher Vault</h2>'));
+});
+t('terms pages exist for the site and each app', () => {
+  assert.match(html('terms.html'), /governed by the laws of Malaysia/);
+  assert.match(html('apps/bambowl/terms/index.html'), /Food safety/);
+  assert.ok(!html('apps/bambowl/terms/index.html').includes('master password'));
+});
 t('app page credits the studio and the storefront', () => assert.match(html('apps/bambowl/index.html'), /by <b>TinyAi Studio<\/b>.*Published on Zenith Gen Orbit/));
 t('/get short link redirects to newest APK', () => assert.ok(html('get/bambowl/android/index.html').includes('Bambowl-1.6.1.apk')));
 t('privacy policy: studio + storefront named, contact filled in, old name gone', () => {
