@@ -181,7 +181,7 @@ function findBuild(app, folder) {
 // An app chat can set up (and later update) the app's page without the hub chat by keeping a
 // "Store listing" folder next to the builds:  listing.json, icon, screenshots\, screenshots-windows\,
 // privacy.html, terms.html. Studio Standards\README.md explains each file.
-const LISTING = 'Store listing', IMG = /\.(webp|png|jpe?g)$/i, TEXT = ['name', 'tagline', 'category', 'description', 'features', 'contentNoun', 'shotStyle'];
+const LISTING = 'Store listing', IMG = /\.(webp|png|jpe?g)$/i, TEXT = ['name', 'tagline', 'category', 'description', 'features', 'contentNoun', 'shotStyle', 'dataSafety'];
 const hashBuf = b => crypto.createHash('sha256').update(b).digest('hex');
 const appDir = id => path.join(ROOT, 'content', 'apps', id);
 
@@ -204,6 +204,20 @@ function readListing(folder) {
   }
   for (const [rel, f] of Object.entries(files)) if (/\.(webp|png|jpe?g)$/i.test(f) && fs.statSync(f).size > 1.5e6) stop(`${f} is ${mb(fs.statSync(f).size)}. Keep images under 1.5 MB (1080 px wide is plenty).`);
   return { dir, l, files, shots: phone.length + wide.length ? shots : null };
+}
+
+/** Store listing\whats-new.txt: first line the version, then one short line for phones, then "- " details.
+ *  Ignored (with a note) when its version isn't the build's, so old notes are never reused. */
+function whatsNew(folder, version) {
+  const f = path.join(folder, LISTING, 'whats-new.txt');
+  if (!fs.existsSync(f)) return null;
+  const lines = fs.readFileSync(f, 'utf8').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const v = (lines.shift() || '').replace(/^v(ersion)?\s*/i, '');
+  if (v !== version) { say(c.dim(`  (whats-new.txt is for ${v || '?'}, this build is ${version}; not using it)`)); return null; }
+  const notes = lines.find(l => !/^[-•*]\s/.test(l)) || '';
+  const changes = lines.filter(l => /^[-•*]\s/.test(l)).map(l => l.replace(/^[-•*]\s+/, '')).slice(0, 20);
+  if (!notes || notes.length > NOTES_MAX) { say(c.bad(`  whats-new.txt needs one line under ${NOTES_MAX} characters after the version.`)); return null; }
+  return { notes, changes };
 }
 
 /** What the listing would change on an existing (or new) app, without writing anything. */
@@ -235,6 +249,7 @@ function newAppFromListing(L, folder) {
   for (const k of ['name', 'tagline']) if (!l[k]) stop(`listing.json needs "${k}".`);
   if (!Object.keys(L.files).some(r => r.startsWith('icon.'))) stop(`${L.dir} needs icon.png or icon.webp (512 x 512).`);
   if (!L.files['privacy.html']) stop(`${L.dir} needs privacy.html (what the app collects and where it goes; see Studio Standards).`);
+  if (!l.dataSafety) stop('listing.json needs "dataSafety" (what the app collects and sends; see Studio Standards README section 9).');
   const platforms = {};
   for (const [p, info] of Object.entries(l.platforms || {})) {
     if (!PLATFORMS[p]) stop(`listing.json: unknown platform "${p}" (use android or windows).`);
@@ -297,11 +312,17 @@ async function publish(newApp = null) {
   for (const f of build.files) { f.sha256 = sha256File(f.full); f.upload = f.name.replace(/[^\w.-]+/g, '-'); }
 
   let notes = typeof flags.notes === 'string' ? flags.notes : '';
+  let changes = typeof flags.changes === 'string' ? flags.changes.split('|').map(x => x.trim()).filter(Boolean) : [];
+  const wn = !notes && !backfill && whatsNew(folder, build.version);  // written by the app chat, so you don't type it
+  if (wn) {
+    say(`\n  ${c.b("What's new")} ${c.dim('(from Store listing\\whats-new.txt)')}\n  ${wn.notes}`);
+    for (const ch of wn.changes) say(`    • ${ch}`);
+    if (flags.yes || await confirm('Use these notes?')) ({ notes, changes } = wn);
+  }
   if (!notes) notes = await ask(`One line of what's new (max ${NOTES_MAX} chars): `);
   if (!notes) stop('Notes are required. Phones show them in the update bar.');
   if (notes.length > NOTES_MAX) stop(`Notes are ${notes.length} characters; the limit is ${NOTES_MAX}.`);
-  let changes = typeof flags.changes === 'string' ? flags.changes.split('|').map(x => x.trim()).filter(Boolean) : [];
-  if (!changes.length && typeof flags.notes !== 'string' && !flags.yes) {
+  if (!changes.length && typeof flags.notes !== 'string' && !flags.yes && !wn) {
     say(c.dim('More details for the version history (optional). One per line; press Enter on an empty line to finish.'));
     for (let line; (line = await ask('  • ')) && changes.length < 20;) changes.push(line);
   }

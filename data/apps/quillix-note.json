@@ -10,6 +10,33 @@
   ],
   "features": [],
   "screenshots": [],
+  "dataSafety": {
+    "collected": [
+      {
+        "data": "Name and email address",
+        "why": "Sign-in and sync",
+        "optional": true
+      },
+      {
+        "data": "Notes and handwriting",
+        "why": "Sync between your devices",
+        "optional": true
+      }
+    ],
+    "sent": [
+      {
+        "data": "Text, handwriting or recordings you choose",
+        "to": "The AI service you pick, using your own key",
+        "why": "AI actions, only when you tap one"
+      }
+    ],
+    "encryptedInTransit": true,
+    "deletion": "Email us to delete your account and synced notes.",
+    "extras": [
+      "Works without an account. Nothing is collected until you sign in.",
+      "No ads, no analytics, no tracking."
+    ]
+  },
   "platforms": {
     "windows": {
       "requires": "Windows 10 or 11, 64-bit"

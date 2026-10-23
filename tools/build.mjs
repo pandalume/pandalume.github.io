@@ -246,6 +246,33 @@ function appPage(app) {
   const about = `<section><h2 class="sec">About</h2>${(app.description || []).map(p => `<p>${esc(p)}</p>`).join('')}
 ${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}</section>`;
 
+  // Data safety, shaped like Google Play's: a short summary, details on tap, the policy for the full story.
+  const ds = app.dataSafety;
+  const ico = d => `<svg class="ds-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
+  const I = {
+    cloud: 'M19 18H7a5 5 0 1 1 .9-9.9A6 6 0 0 1 19.5 10 4 4 0 0 1 19 18zM12 9l-3.5 3.5h2.5V16h2v-3.5h2.5z',
+    send: 'M3 20v-6l9-2-9-2V4l19 8z',
+    none: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 0 1 6.3 12.9L7.1 5.7A8 8 0 0 1 12 4zM5.7 7.1l11.2 11.2A8 8 0 0 1 5.7 7.1z',
+    lock: 'M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zm-7-2a2 2 0 0 1 4 0v2h-4z',
+    bin: 'M6 7h12l-1 14H7zm3-4h6l1 2h4v2H4V5h4z',
+    info: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2zm0-8h-2V7h2z'
+  };
+  const listNames = xs => xs.length <= 2 ? xs.join(' and ') : `${xs.slice(0, 2).join(', ')} and ${xs.length - 2} more`;
+  const short = t => t.split(/[,(]/)[0].trim();
+  const safety = ds ? `<section><h2 class="sec">Data safety</h2>
+<p class="muted small">What ${esc(app.name)} collects and where it goes, in short. The <a href="/apps/${app.id}/privacy/">privacy policy</a> has the details.</p>
+<div class="card ds">
+<div class="ds-row">${ico(ds.collected?.length ? I.cloud : I.none)}<div><b>${ds.collected?.length ? 'Collects, only if you sign in' : 'Collects no data'}</b>${ds.collected?.length ? `<span>${esc(listNames(ds.collected.map(c => short(c.data))))}</span>` : ''}</div></div>
+<div class="ds-row">${ico(ds.sent?.length ? I.send : I.none)}<div><b>${ds.sent?.length ? 'Sends data to other services only when you use a feature' : 'No data sent to other companies'}</b>${ds.sent?.length ? `<span>${esc(listNames(ds.sent.map(x => short(x.to))))}</span>` : ''}</div></div>
+${ds.encryptedInTransit ? `<div class="ds-row">${ico(I.lock)}<div><b>Data is encrypted in transit</b></div></div>` : ''}
+<div class="ds-row">${ico(I.bin)}<div><b>${ds.deletion ? 'You can delete your data' : 'No account data to delete'}</b>${ds.deletion ? `<span>${esc(ds.deletion)}</span>` : ''}</div></div>
+${(ds.extras || []).map(x => `<div class="ds-row">${ico(I.info)}<div><span>${esc(x)}</span></div></div>`).join('')}
+${(ds.collected?.length || ds.sent?.length) ? `<details class="ds-more"><summary>See details</summary>
+${ds.collected?.length ? `<h3>Data collected</h3><ul>${ds.collected.map(c => `<li><b>${esc(c.data)}</b><span>${esc(c.why)}${c.optional ? ' · optional' : ''}</span></li>`).join('')}</ul>` : ''}
+${ds.sent?.length ? `<h3>Sent to other services</h3><ul>${ds.sent.map(x => `<li><b>${esc(x.data)}</b><span>to ${esc(x.to)}: ${esc(x.why)}</span></li>`).join('')}</ul>` : ''}
+</details>` : ''}
+</div></section>` : '';
+
   // Only the newest version per platform is downloadable; older entries show their notes only.
   const current = new Set(plats.map(p => latestFor(app, p)).filter(Boolean));
   const verItem = r => `<li class="${r.status}" id="${vid(r.version)}">
@@ -278,6 +305,7 @@ ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}<
 <section class="dls">${panels}</section>
 ${shots}
 ${about}
+${safety}
 ${versions}
 <p class="small"><a href="/apps/${app.id}/privacy/">${esc(app.name)} privacy policy</a> · <a href="/apps/${app.id}/terms/">Terms of use</a></p>
 ${bar}`

@@ -11,6 +11,38 @@
   ],
   "features": [],
   "screenshots": [],
+  "dataSafety": {
+    "collected": [
+      {
+        "data": "Name and email address",
+        "why": "Sign-in and backup",
+        "optional": true
+      },
+      {
+        "data": "Your vault, encrypted on your device",
+        "why": "Backup and sync. We cannot read it.",
+        "optional": true
+      }
+    ],
+    "sent": [
+      {
+        "data": "Website addresses of your entries",
+        "to": "Google's icon service",
+        "why": "Showing site icons"
+      },
+      {
+        "data": "First 5 characters of a password's one-way fingerprint",
+        "to": "Have I Been Pwned",
+        "why": "Breached-password check. The password never leaves your device."
+      }
+    ],
+    "encryptedInTransit": true,
+    "deletion": "Email us to delete your account and vault backup.",
+    "extras": [
+      "Your vault is encrypted with your master password before it leaves your device.",
+      "No ads, no analytics, no tracking."
+    ]
+  },
   "platforms": {
     "windows": {
       "requires": "Windows 10 or 11, 64-bit"

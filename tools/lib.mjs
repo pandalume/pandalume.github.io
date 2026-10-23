@@ -50,6 +50,12 @@ export function validate(site, apps) {
     for (const p of Object.keys(a.platforms || {})) if (!PLATFORMS[p]) w(`unknown platform ${p}`);
     if (a.shotStyle && !['clean', 'phone'].includes(a.shotStyle)) w('shotStyle must be clean or phone');
     for (const s of a.screenshots || []) if (!(typeof s === 'string' ? s : s?.file)) w('each screenshot is a file name or { "file": … }');
+    const ds = a.dataSafety;
+    if (ds) {
+      if (!Array.isArray(ds.collected) || !Array.isArray(ds.sent)) w('dataSafety needs "collected" and "sent" lists (use [] for none)');
+      for (const x of ds.collected || []) if (!x.data || !x.why) w('each dataSafety.collected item needs "data" and "why"');
+      for (const x of ds.sent || []) if (!x.data || !x.to || !x.why) w('each dataSafety.sent item needs "data", "to" and "why"');
+    }
     const and = a.platforms?.android;
     if (and && !/^[0-9a-f]{64}$/.test(and.certSha256 || '')) w('platforms.android.certSha256 must be the 64-hex signing certificate digest');
     const seen = new Set();

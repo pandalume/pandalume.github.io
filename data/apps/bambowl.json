@@ -23,6 +23,53 @@
     "3.webp"
   ],
   "shotStyle": "phone",
+  "dataSafety": {
+    "collected": [
+      {
+        "data": "Name, email address and profile picture",
+        "why": "Sign-in, sync and Friends",
+        "optional": true
+      },
+      {
+        "data": "Recipes, cookbooks, meal plans and grocery lists",
+        "why": "Sync between your phones",
+        "optional": true
+      },
+      {
+        "data": "A small copy of each recipe's main photo",
+        "why": "Sync between your phones",
+        "optional": true
+      },
+      {
+        "data": "Messages and recipes you send to friends",
+        "why": "Friends chat",
+        "optional": true
+      },
+      {
+        "data": "Notification token",
+        "why": "Alerts for messages and friend requests",
+        "optional": true
+      },
+      {
+        "data": "Reports you make about a person",
+        "why": "Safety and preventing abuse",
+        "optional": true
+      }
+    ],
+    "sent": [
+      {
+        "data": "Recipe text you choose",
+        "to": "A third-party AI service",
+        "why": "AI tidy-up, only when you tap it (approved accounts)"
+      }
+    ],
+    "encryptedInTransit": true,
+    "deletion": "In the app: Account › Google account › Delete my account. Or email us.",
+    "extras": [
+      "Works without an account. Nothing is collected until you sign in.",
+      "No ads, no analytics, no tracking."
+    ]
+  },
   "platforms": {
     "android": {
       "package": "com.jon.bambowl",
