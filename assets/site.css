@@ -167,3 +167,9 @@ pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px
 @media (max-width: 600px) { .top { position: static; } }
 .foot a { display: inline-block; }
 .principles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+/* studio mark (Pandalume Studio panda head) */
+.studio-mark { display: block; width: 80px; height: 80px; margin-bottom: 14px; filter: drop-shadow(0 6px 18px rgba(129, 140, 248, .25)); }
+.studio-foot { display: flex; align-items: center; gap: 8px; }
+.studio-foot img { flex: none; }
+.by img { vertical-align: -4px; margin-right: 6px; }

@@ -86,7 +86,7 @@ ${body}
 <footer class="wrap foot">
   <p>No ads. No tracking. No cookies.</p>
   <p><a href="/">Home</a><a href="/updates/">What's new</a><a href="/install/">Install help</a><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a><a href="mailto:${esc(site.contact)}">Contact</a></p>
-  <p class="muted">© ${new Date().getUTCFullYear()} ${esc(site.developer)} · ${esc(site.name)}</p>
+  <p class="muted studio-foot"><img src="/assets/pandalume-mark.webp" alt="" width="28" height="28">© ${new Date().getUTCFullYear()} ${esc(site.developer)} · ${esc(site.name)}</p>
 </footer>
 </body>
 </html>
@@ -130,6 +130,7 @@ function home() {
     description: site.tagline,
     canonical: site.baseUrl + '/',
     body: `<section class="hero">
+  <img class="studio-mark" src="/assets/pandalume-mark.webp" alt="${esc(site.developer)} logo" width="80" height="80">
   <span class="pill">✦ ${esc(site.name)}</span>
   <h1>Apps and games by <span class="iri-text">${esc(site.developer)}</span>.</h1>
   <p>Small, private apps made by one developer. No ads, no tracking. Download them here directly, always the newest version, with every older one kept.</p>
@@ -253,7 +254,7 @@ ${rel.length > SHOW ? `<details class="older"><summary>Show ${rel.length - SHOW}
     image: shareImage(app),
     body: `<section class="app-head">
   <img class="icon big" src="/apps/${app.id}/icon.webp" alt="" width="96" height="96">
-  <div class="app-title"><h1>${esc(app.name)}</h1><p class="by">by <b>${esc(app.developer || site.developer)}</b> <span class="muted">· Published on ${esc(site.name)}</span></p><p class="tag">${esc(app.tagline)}</p>
+  <div class="app-title"><h1>${esc(app.name)}</h1><p class="by"><img src="/assets/pandalume-mark.webp" alt="" width="18" height="18">by <b>${esc(app.developer || site.developer)}</b> <span class="muted">· Published on ${esc(site.name)}</span></p><p class="tag">${esc(app.tagline)}</p>
   <div class="chips">${chips(app)}${app.category ? `<span class="chip ghost">${esc(app.category)}</span>` : ''}</div></div>
   <button type="button" class="share-btn" data-share-url="${appUrl(site, app)}" data-share-title="${esc(app.name)}" data-share-text="${esc(app.tagline)}">Share</button>
 </section>
