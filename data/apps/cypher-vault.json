@@ -2,47 +2,9 @@
   "id": "cypher-vault",
   "name": "Cypher Vault",
   "order": 3,
-  "visibility": "unlisted",
-  "category": "Security",
+  "visibility": "family",
   "tagline": "A password manager whose vault is encrypted on your device.",
-  "description": [
-    "Cypher Vault stores your passwords in a vault that is encrypted on your device with your master password. If you sign in, only the encrypted vault is backed up, so the stored copy can't be read without your master password.",
-    "Cypher Vault is still in development. Keep another copy of anything important."
-  ],
-  "features": [],
-  "screenshots": [],
-  "dataSafety": {
-    "collected": [
-      {
-        "data": "Name and email address",
-        "why": "Sign-in and backup",
-        "optional": true
-      },
-      {
-        "data": "Your vault, encrypted on your device",
-        "why": "Backup and sync. We cannot read it.",
-        "optional": true
-      }
-    ],
-    "sent": [
-      {
-        "data": "Website addresses of your entries",
-        "to": "Google's icon service",
-        "why": "Showing site icons"
-      },
-      {
-        "data": "First 5 characters of a password's one-way fingerprint",
-        "to": "Have I Been Pwned",
-        "why": "Breached-password check. The password never leaves your device."
-      }
-    ],
-    "encryptedInTransit": true,
-    "deletion": "Email us to delete your account and vault backup.",
-    "extras": [
-      "Your vault is encrypted with your master password before it leaves your device.",
-      "No ads, no analytics, no tracking."
-    ]
-  },
+  "contentNoun": "your vault entries",
   "platforms": {
     "windows": {
       "requires": "Windows 10 or 11, 64-bit"
@@ -52,65 +14,5 @@
       "certSha256": "5cf24e33ac03df4e73abdda4cbc67446cc78a29bd2c9b5f0dcaeb3ae56c27910",
       "requires": "Android 8.0 or newer"
     }
-  },
-  "releases": [
-    {
-      "version": "1.2.0",
-      "code": 3,
-      "date": "2026-10-24",
-      "status": "live",
-      "notes": "version 1.2.0",
-      "files": [
-        {
-          "kind": "apk",
-          "name": "Cypher-Vault-Android-1.2.0.apk",
-          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/cypher-vault-1.2.0/Cypher-Vault-Android-1.2.0.apk",
-          "size": 3070903,
-          "sha256": "d0947b0cc85fe2990d05f37f6af557ce7d39686546a6a67c0c0b68da124d8674",
-          "selfDownloads": 1
-        },
-        {
-          "kind": "portable",
-          "name": "Cypher-Vault-Portable-1.2.0.exe",
-          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/cypher-vault-1.2.0/Cypher-Vault-Portable-1.2.0.exe",
-          "size": 111962869,
-          "sha256": "b69cbca088b71aa8e6e7b39a3931143bfcc88e8b025fc7b2abd471d5a7a898f7",
-          "selfDownloads": 1
-        },
-        {
-          "kind": "setup",
-          "name": "Cypher-Vault-Setup-1.2.0.exe",
-          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/cypher-vault-1.2.0/Cypher-Vault-Setup-1.2.0.exe",
-          "size": 112331626,
-          "sha256": "16d8f6e257fff7e95b0e0a9665375a455590e608a05e9734dd1bd3d8478f4da9",
-          "selfDownloads": 1
-        }
-      ]
-    },
-    {
-      "version": "1.1.0",
-      "date": "2026-10-23",
-      "status": "live",
-      "notes": "First release on Zenith Gen Orbit. Still in development: keep another copy of anything important.",
-      "files": [
-        {
-          "kind": "portable",
-          "name": "Cypher-Vault-Portable-1.1.0.exe",
-          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/cypher-vault-1.1.0/Cypher-Vault-Portable-1.1.0.exe",
-          "size": 111955612,
-          "sha256": "1eac56c8e433bd9f6467dcfb4d89c7b7c37fce9dd036cb6e92c73c61c142b095",
-          "selfDownloads": 1
-        },
-        {
-          "kind": "setup",
-          "name": "Cypher-Vault-Setup-1.1.0.exe",
-          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/cypher-vault-1.1.0/Cypher-Vault-Setup-1.1.0.exe",
-          "size": 112324304,
-          "sha256": "a2f4ebd10e0f25b8dc967c720359b8355da0abe01dcc3453bd8ada1bae54eb1b",
-          "selfDownloads": 1
-        }
-      ]
-    }
-  ],
-  "contentNoun": "your vault entries"
+  }
 }
