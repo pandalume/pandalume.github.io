@@ -51,7 +51,7 @@ function copyDir(src, dst) {
 
 const appCount = app => (app.releases || []).reduce((t, r) => t + r.files.reduce((u, f) => u + (counts[f.url] || 0), 0), 0);
 
-const LOGO = `<svg viewBox="0 0 40 40" width="36" height="36" aria-hidden="true"><defs><linearGradient id="zg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#73E6D8"/><stop offset=".45" stop-color="#818CF8"/><stop offset=".75" stop-color="#C084FC"/><stop offset="1" stop-color="#F472B6"/></linearGradient></defs><rect x="1" y="1" width="38" height="38" rx="11" fill="#0b0f17" stroke="url(#zg)" stroke-opacity=".55"/><path d="M11 12h13L11 28h13" fill="none" stroke="url(#zg)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M33 15.5a6 6 0 1 0 0 9V21h-3.5" fill="none" stroke="url(#zg)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const LOGO = `<img class="zg-logo" src="/assets/zg-logo.webp" alt="" width="38" height="38">`;
 
 function page({ title, description, body, noindex = false, canonical = '', image = '' }) {
   return `<!doctype html>
@@ -70,7 +70,8 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">\n` : ''}<met
 <meta name="twitter:card" content="summary">
 <link rel="alternate" type="application/atom+xml" title="${esc(site.name)}: what's new" href="/feed.xml">
 <meta name="theme-color" content="#070a0f">
-<link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/assets/site.css">
 <script src="/assets/site.js" defer></script>
 </head>
