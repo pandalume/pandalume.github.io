@@ -12,7 +12,10 @@
   "features": [],
   "screenshots": [],
   "platforms": {
-    "windows": { "requires": "Windows 10 or 11, 64-bit" }
+    "windows": {
+      "requires": "Windows 10 or 11, 64-bit"
+    }
   },
-  "releases": []
+  "releases": [],
+  "contentNoun": "your vault entries"
 }

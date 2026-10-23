@@ -232,12 +232,13 @@ function appPage(app) {
   const about = `<section><h2 class="sec">About</h2>${(app.description || []).map(p => `<p>${esc(p)}</p>`).join('')}
 ${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}</section>`;
 
+  // Only the newest version per platform is downloadable; older entries show their notes only.
+  const current = new Set(plats.map(p => latestFor(app, p)).filter(Boolean));
   const verItem = r => `<li class="${r.status}" id="${vid(r.version)}">
   <div class="vrow"><b>${esc(r.version)}</b><span class="muted small">${date(r.date)}</span>${r.status === 'pulled' ? '<span class="chip warn">Pulled</span>' : ''}</div>
   <p>${esc(r.notes)}</p>
   ${(r.changes || []).length ? `<ul>${r.changes.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
-  ${r.status === 'pulled' ? `<p class="small warn-text">Withdrawn: ${esc(r.pulledReason)}</p>` : `<p class="small files">${r.files.map(f =>
-    `<a href="${esc(f.url)}">${esc(f.name)}</a> <span class="muted">${mb(f.size)}${counts[f.url] != null ? ` · ${num(counts[f.url])} downloads` : ''}</span>`).join('<br>')}</p>${hashes(r.files)}`}
+  ${r.status === 'pulled' ? `<p class="small warn-text">Withdrawn: ${esc(r.pulledReason)}</p>` : current.has(r) ? '<p class="small muted">Current version, download it above.</p>' : ''}
 </li>`;
   const rel = app.releases || [], SHOW = 3;
   const versions = rel.length ? `<section><h2 class="sec">Version history</h2><ol class="versions">${rel.slice(0, SHOW).map(verItem).join('')}</ol>
@@ -274,11 +275,17 @@ ${bar}`
 // (/privacy.html, /terms.html) has every app's section; an app's own page has only its own.
 const DOCS = {
   privacy: { title: 'Privacy policy', file: 'privacy', updated: () => site.privacyUpdated, intro: 'privacy/intro.html', outro: 'privacy/shared.html', path: '/privacy.html', sub: 'privacy',
-    lead: list => `This policy covers the apps made by ${esc(site.developer)}, ${esc(site.developerAbout)}, and published on ${esc(site.name)}: ${list} (“the apps”). “We” and “us” mean ${esc(site.developer)}.` },
+    lead: (list, one) => one ? `This policy covers ${list}, made by ${esc(site.developer)}, ${esc(site.developerAbout)}, and published on ${esc(site.name)}. “We” and “us” mean ${esc(site.developer)}.` : `This policy covers the apps made by ${esc(site.developer)}, ${esc(site.developerAbout)}, and published on ${esc(site.name)}: ${list} (“the apps”). “We” and “us” mean ${esc(site.developer)}.` },
   terms: { title: 'Terms of use', file: 'terms', updated: () => site.termsUpdated, intro: null, outro: 'terms/shared.html', path: '/terms.html', sub: 'terms',
-    lead: list => `These terms apply when you use the apps made by ${esc(site.developer)}, ${esc(site.developerAbout)}, and published on ${esc(site.name)}: ${list} (“the apps”). “We” and “us” mean ${esc(site.developer)}.` }
+    lead: (list, one) => one ? `These terms apply when you use ${list}, made by ${esc(site.developer)}, ${esc(site.developerAbout)}, and published on ${esc(site.name)}. “We” and “us” mean ${esc(site.developer)}.` : `These terms apply when you use the apps made by ${esc(site.developer)}, ${esc(site.developerAbout)}, and published on ${esc(site.name)}: ${list} (“the apps”). “We” and “us” mean ${esc(site.developer)}.` }
 };
-const part = rel => { const p = path.join(CONTENT, rel); return exists(p) ? fill(read(p)) : ''; };
+// Shared policy text speaks about one app on its own page and about "the apps" on the combined page,
+// so no app's page mentions another app's content.
+function words(app) {
+  if (!app) return { apps: 'the apps', Apps: 'The apps', poss: 'The apps\u2019', are: 'are', them: 'them', they: 'they', keep: 'keep', sync: 'sync', show: 'show', track: 'track', sell: 'sell', check: 'check', contentParen: '', whichApp: ' and say which app' };
+  return { apps: app.name, Apps: app.name, poss: app.name + '\u2019s', are: 'is', them: 'it', they: 'it', keep: 'keeps', sync: 'syncs', show: 'shows', track: 'tracks', sell: 'sells', check: 'checks', contentParen: app.contentNoun ? ` (${app.contentNoun})` : '', whichApp: '' };
+}
+const part = (rel, app) => { const p = path.join(CONTENT, rel); if (!exists(p)) return ''; let h = fill(read(p)); for (const [k, v] of Object.entries(words(app))) h = h.replaceAll(`{{${k}}}`, esc(v)); return h; };
 const nameList = list => list.length > 1 ? list.slice(0, -1).join(', ') + ' and ' + list.at(-1) : list[0];
 
 function docPage(kind, app = null) {
@@ -290,8 +297,8 @@ function docPage(kind, app = null) {
     noindex: !!app && app.visibility !== 'public',
     canonical: app ? `${appUrl(site, app)}${d.sub}/` : site.baseUrl + d.path,
     body: `<article class="prose">${app ? `<p class="small"><a href="/apps/${app.id}/">← ${esc(app.name)}</a></p>` : ''}<h1>${esc(title)}</h1><p class="muted">Last updated: ${date(d.updated())}</p>
-<p>${d.lead(esc(nameList(subject.map(a => a.name))))}</p>
-${d.intro ? part(d.intro) : ''}${subject.map(a => part(`apps/${a.id}/${d.file}.html`)).join('')}${part(d.outro)}</article>`
+<p>${d.lead(esc(nameList(subject.map(a => a.name))), !!app)}</p>
+${d.intro ? part(d.intro, app) : ''}${subject.map(a => part(`apps/${a.id}/${d.file}.html`, app)).join('')}${part(d.outro, app)}</article>`
   });
 }
 
@@ -381,9 +388,10 @@ for (const app of apps) {
   const a = androidFeed(site, app), w = windowsFeed(site, app);
   if (a) { json(`api/${app.id}/android.json`, a); feeds.android = `${site.baseUrl}/api/${app.id}/android.json`; write(`get/${app.id}/android/index.html`, getPage(app, a.apk, 'for Android')); }
   if (w) { json(`api/${app.id}/windows.json`, w); feeds.windows = `${site.baseUrl}/api/${app.id}/windows.json`; const f = w.files.setup || w.files.portable; write(`get/${app.id}/windows/index.html`, getPage(app, f.url, 'for Windows')); }
+  const currentRel = new Set(Object.keys(app.platforms).map(p => latestFor(app, p)).filter(Boolean));
   json(`api/${app.id}/releases.json`, (app.releases || []).map(r => ({
-    version: r.version, ...(r.code != null && { code: r.code }), date: r.date, status: r.status, notes: r.notes,
-    ...(r.status === 'pulled' ? { pulledReason: r.pulledReason } : { files: r.files.map(({ kind, name, url, size, sha256 }) => ({ kind, name, url, size, sha256 })) })
+    version: r.version, ...(r.code != null && { code: r.code }), date: r.date, status: r.status, notes: r.notes, ...(r.changes && { changes: r.changes }),
+    ...(r.status === 'pulled' ? { pulledReason: r.pulledReason } : currentRel.has(r) ? { files: r.files.map(({ kind, name, url, size, sha256 }) => ({ kind, name, url, size, sha256 })) } : {})
   })));
   if (app.visibility === 'public') catalog.push({ id: app.id, name: app.name, tagline: app.tagline, page: appUrl(site, app), icon: `${site.baseUrl}/apps/${app.id}/icon.webp`, feeds });
 }

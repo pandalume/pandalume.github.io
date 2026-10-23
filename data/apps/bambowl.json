@@ -37,7 +37,7 @@
       "status": "live",
       "notes": "Delete your account from the app, report people in Friends, and a refreshed Help & about.",
       "changes": [
-        "Delete my account in Account › Google account",
+        "Delete my account in Account \u203a Google account",
         "Report a person from their profile or chat",
         "AI tidy-up is now for approved accounts only",
         "Updates now come from Zenith Gen Orbit"
@@ -68,5 +68,6 @@
         }
       ]
     }
-  ]
+  ],
+  "contentNoun": "your recipes, meal plans and grocery lists"
 }

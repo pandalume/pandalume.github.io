@@ -60,6 +60,20 @@ t('each app\'s policy covers only that app', () => {
   assert.ok(q.includes('Quillix Note') && !/Bambowl|OpenRouter|Cypher Vault/.test(q.replace(/<header[\s\S]*?<\/header>|<footer[\s\S]*?<\/footer>/g, '')));
   assert.ok(all.includes('<h2>Bambowl</h2>') && all.includes('<h2>Quillix Note</h2>') && all.includes('<h2>Cypher Vault</h2>'));
 });
+t('Cypher Vault pages never mention other apps or their content', () => {
+  for (const f of ['apps/cypher-vault/privacy/index.html', 'apps/cypher-vault/terms/index.html']) {
+    const h = html(f).replace(/<header[\s\S]*?<\/header>|<footer[\s\S]*?<\/footer>/g, '');
+    assert.ok(!/recipe|Bambowl|Quillix|meal plan|grocer/i.test(h) && !h.includes('{{'), f);
+    assert.match(h, /Cypher Vault/);
+  }
+});
+t('only the current version is downloadable; history keeps the notes', () => {
+  const a = html('apps/bambowl/index.html');
+  assert.ok(a.includes('Bambowl-1.6.1.apk') && !a.includes('Bambowl-1.6.0.apk') && !a.includes('Bambowl-1.5.0.apk'));
+  assert.ok(a.includes('Cooking mode with timers') && a.includes('Friends and chat'));
+  const rel = readJson(out('api/bambowl/releases.json'));
+  assert.ok(rel.find(r => r.version === '1.6.1').files && !rel.find(r => r.version === '1.6.0').files);
+});
 t('terms pages exist for the site and each app', () => {
   assert.match(html('terms.html'), /governed by the laws of Malaysia/);
   assert.match(html('apps/bambowl/terms/index.html'), /Food safety/);
