@@ -55,6 +55,39 @@
   },
   "releases": [
     {
+      "version": "1.2.0",
+      "code": 3,
+      "date": "2026-10-24",
+      "status": "live",
+      "notes": "version 1.2.0",
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Cypher-Vault-Android-1.2.0.apk",
+          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/cypher-vault-1.2.0/Cypher-Vault-Android-1.2.0.apk",
+          "size": 3070903,
+          "sha256": "d0947b0cc85fe2990d05f37f6af557ce7d39686546a6a67c0c0b68da124d8674",
+          "selfDownloads": 1
+        },
+        {
+          "kind": "portable",
+          "name": "Cypher-Vault-Portable-1.2.0.exe",
+          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/cypher-vault-1.2.0/Cypher-Vault-Portable-1.2.0.exe",
+          "size": 111962869,
+          "sha256": "b69cbca088b71aa8e6e7b39a3931143bfcc88e8b025fc7b2abd471d5a7a898f7",
+          "selfDownloads": 1
+        },
+        {
+          "kind": "setup",
+          "name": "Cypher-Vault-Setup-1.2.0.exe",
+          "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/cypher-vault-1.2.0/Cypher-Vault-Setup-1.2.0.exe",
+          "size": 112331626,
+          "sha256": "16d8f6e257fff7e95b0e0a9665375a455590e608a05e9734dd1bd3d8478f4da9",
+          "selfDownloads": 1
+        }
+      ]
+    },
+    {
       "version": "1.1.0",
       "date": "2026-10-23",
       "status": "live",
