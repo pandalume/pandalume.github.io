@@ -69,7 +69,7 @@ ${noindex ? '<meta name="robots" content="noindex">\n' : ''}${canonical ? `<link
 ${canonical ? `<meta property="og:url" content="${esc(canonical)}">\n` : ''}<meta property="og:image" content="${esc(image || site.baseUrl + '/assets/og.png')}">
 <meta name="twitter:card" content="summary">
 <link rel="alternate" type="application/atom+xml" title="${esc(site.name)}: what's new" href="/feed.xml">
-<meta name="theme-color" content="#070a0f">
+<meta name="theme-color" content="#070a0f">${site.googleSiteVerification ? `\n<meta name="google-site-verification" content="${esc(site.googleSiteVerification)}">` : ''}
 <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/assets/site.css">
@@ -358,6 +358,9 @@ fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 copyDir(path.join(ROOT, 'assets'), path.join(OUT, 'assets'));
 write('.nojekyll', '');
+// content/root/: files served as-is at the site root (e.g. Google Search Console ownership file)
+const ROOTFILES = path.join(CONTENT, 'root');
+if (exists(ROOTFILES)) for (const f of fs.readdirSync(ROOTFILES)) fs.copyFileSync(path.join(ROOTFILES, f), path.join(OUT, f));
 if (site.domain) write('CNAME', site.domain + '\n');
 
 write('index.html', home());
