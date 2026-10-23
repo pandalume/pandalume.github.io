@@ -10,5 +10,10 @@
   "legacyFeeds": {
     "apps/bambowl.json": "bambowl"
   },
-  "termsUpdated": "2026-10-22"
+  "termsUpdated": "2026-10-22",
+  "family": {
+    "repo": "o/family",
+    "supabaseUrl": "https://example.supabase.co",
+    "publishableKey": "sb_publishable_test"
+  }
 }

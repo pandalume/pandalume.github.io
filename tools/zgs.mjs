@@ -8,6 +8,7 @@
 //   node tools/zgs.mjs status [app]
 //   node tools/zgs.mjs verify [--deep]
 //   node tools/zgs.mjs mine <app> [android|windows]   don't count a download you made yourself
+//   node tools/zgs.mjs move <app> family [--delete-public]   make an app family & friends only
 //
 // publish: reads the newest build from Finished Apps, checks it, uploads it to a GitHub release,
 // re-downloads every file to confirm its SHA-256, and only then records the version in
@@ -74,11 +75,29 @@ function token() {
   if (!TOKEN) stop('No GitHub login found. Sign in once with "git push" in this folder, or set ZGS_GITHUB_TOKEN to a fine-grained token (this repo only, Contents: read and write).');
   return TOKEN;
 }
+// Family apps live in a private repository (site.json "family.repo"). zgs reaches it with the GitHub CLI's
+// login (gh auth login), because the saved git token only covers the website repository.
+let FTOKEN;
+function familyToken() {
+  if (FTOKEN) return FTOKEN;
+  FTOKEN = process.env.ZGS_FAMILY_TOKEN;
+  for (const exe of ['gh', 'C:\\Program Files\\GitHub CLI\\gh.exe']) {
+    if (FTOKEN) break;
+    const r = spawnSync(exe, ['auth', 'token'], { encoding: 'utf8' });
+    if (r.status === 0) FTOKEN = r.stdout.trim();
+  }
+  if (!FTOKEN) stop('Family apps need the GitHub CLI signed in. Run: gh auth login');
+  return FTOKEN;
+}
+const FAMILY = () => SITE().family?.repo || stop('site.json has no "family.repo".');
+const FAPI = p => `https://api.github.com/repos/${FAMILY()}${p}`;
+const tokenFor = url => SITE().family?.repo && url.includes(SITE().family.repo) ? familyToken() : token();
+
 async function gh(method, url, body, extra = {}) {
   const full = url.startsWith('http') ? url : `https://api.github.com/repos/${SITE().repo}${url}`;
   const res = await fetch(full, {
     method, body, duplex: body ? 'half' : undefined,
-    headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token()}`, 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'zgs', ...extra }
+    headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${tokenFor(full)}`, 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'zgs', ...extra }
   });
   if (res.status === 404 && method === 'GET') return null;
   if (!res.ok) stop(`GitHub ${method} ${url} → ${res.status}: ${(await res.text()).slice(0, 300)}${res.status === 401 ? '\nThe saved GitHub login was refused. Set ZGS_GITHUB_TOKEN (see README).' : ''}`);
@@ -89,7 +108,7 @@ async function gh(method, url, body, extra = {}) {
 function uploadAsset(uploadUrl, file, name) {
   const size = fs.statSync(file).size, url = new URL(`${uploadUrl.replace(/\{.*$/, '')}?name=${encodeURIComponent(name)}`);
   return new Promise((resolve, reject) => {
-    const req = https.request(url, { method: 'POST', headers: { Authorization: `Bearer ${token()}`, Accept: 'application/vnd.github+json', 'User-Agent': 'zgs', 'Content-Type': 'application/octet-stream', 'Content-Length': size } }, res => {
+    const req = https.request(url, { method: 'POST', headers: { Authorization: `Bearer ${tokenFor(uploadUrl)}`, Accept: 'application/vnd.github+json', 'User-Agent': 'zgs', 'Content-Type': 'application/octet-stream', 'Content-Length': size } }, res => {
       let body = ''; res.setEncoding('utf8'); res.on('data', d => (body += d));
       res.on('end', () => { process.stdout.write('\n'); res.statusCode < 300 ? resolve(JSON.parse(body)) : reject(new Stop(`Upload of ${name} failed: GitHub ${res.statusCode} ${body.slice(0, 200)}`)); });
     });
@@ -103,7 +122,12 @@ function uploadAsset(uploadUrl, file, name) {
 }
 
 async function downloadSha(url) {
-  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'zgs' } });
+  let res;
+  if (url.startsWith('https://api.github.com/')) {                  // private asset: ask GitHub for a short-lived link first
+    const r = await fetch(url, { redirect: 'manual', headers: { Accept: 'application/octet-stream', Authorization: `Bearer ${tokenFor(url)}`, 'User-Agent': 'zgs' } });
+    const loc = r.headers.get('location');
+    res = loc ? await fetch(loc, { headers: { 'User-Agent': 'zgs' } }) : r;
+  } else res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'zgs' } });
   if (!res.ok) stop(`Download check failed: ${url} → ${res.status}`);
   const h = crypto.createHash('sha256'); let size = 0;
   for await (const chunk of res.body) { h.update(chunk); size += chunk.length; }
@@ -177,6 +201,35 @@ function findBuild(app, folder) {
   return { version: versions[0], code, files: picked };
 }
 
+// ---------- family repository (private) ----------
+const enc = p => p.split('/').map(encodeURIComponent).join('/');
+const blobSha = b => crypto.createHash('sha1').update(Buffer.concat([Buffer.from(`blob ${b.length}\0`), b])).digest('hex');
+async function fGetJson(p) { const r = await gh('GET', FAPI('/contents/' + enc(p))); return r ? JSON.parse(Buffer.from(r.content, 'base64').toString('utf8')) : null; }
+async function fList(p) { const r = await gh('GET', FAPI('/contents/' + enc(p))); return Array.isArray(r) ? r : []; }
+async function fPut(p, buf, message) {
+  const cur = await gh('GET', FAPI('/contents/' + enc(p)));
+  if (cur && cur.sha === blobSha(buf)) return false;
+  await gh('PUT', FAPI('/contents/' + enc(p)), JSON.stringify({ message, content: buf.toString('base64'), ...(cur && { sha: cur.sha }) }), { 'Content-Type': 'application/json' });
+  return true;
+}
+async function fDelete(p, sha, message) { await gh('DELETE', FAPI('/contents/' + enc(p)), JSON.stringify({ message, sha }), { 'Content-Type': 'application/json' }); }
+/** The full data of a family app: the website keeps only a stub (name, platforms) for its policy pages. */
+async function familyApp(stub) {
+  const remote = await fGetJson(`apps/${stub.id}.json`);
+  return { ...stub, ...(remote || { releases: [] }), visibility: 'family', _file: stub._file };
+}
+// What the public website keeps of a family app: enough for its privacy and terms pages, nothing else.
+const STUB = ['id', 'name', 'order', 'visibility', 'tagline', 'contentNoun', 'platforms'];
+const stubOf = raw => Object.fromEntries(STUB.filter(k => raw[k] !== undefined).map(k => [k, raw[k]]));
+
+/** Uploads a family app's listing images to the private repo, removing screenshots that are gone. */
+async function pushFamilyFiles(id, L, label) {
+  const want = Object.entries(L.files).filter(([rel]) => !rel.endsWith('.html'));
+  for (const [rel, f] of want) if (await fPut(`apps/${id}/${rel}`, fs.readFileSync(f), `${label}: ${rel}`)) say(c.dim(`  sent ${rel}`));
+  if (L.shots) for (const old of await fList(`apps/${id}/shots`)) if (!want.some(([rel]) => rel === 'shots/' + old.name)) await fDelete(old.path, old.sha, `${label}: remove ${old.name}`);
+  if (want.some(([rel]) => rel.startsWith('icon.'))) for (const old of await fList(`apps/${id}`)) if (/^icon\./.test(old.name) && !L.files[old.name]) await fDelete(old.path, old.sha, `${label}: remove ${old.name}`);
+}
+
 // ---------- store listing ----------
 // An app chat can set up (and later update) the app's page without the hub chat by keeping a
 // "Store listing" folder next to the builds:  listing.json, icon, screenshots\, screenshots-windows\,
@@ -221,6 +274,19 @@ function whatsNew(folder, version) {
 }
 
 /** What the listing would change on an existing (or new) app, without writing anything. */
+async function listingDiffFamily(app, L) {
+  const out = [];
+  for (const k of TEXT) if (L.l[k] !== undefined && JSON.stringify(L.l[k]) !== JSON.stringify(app[k])) out.push(k);
+  if (L.shots && JSON.stringify(L.shots) !== JSON.stringify(app.screenshots || [])) out.push('screenshots list');
+  const remote = new Map([...(await fList(`apps/${app.id}`)), ...(await fList(`apps/${app.id}/shots`))].map(x => [x.path.replace(`apps/${app.id}/`, ''), x.sha]));
+  for (const [rel, f] of Object.entries(L.files)) {
+    const b = fs.readFileSync(f);
+    if (rel.endsWith('.html')) { const cur = path.join(appDir(app.id), rel); if (!fs.existsSync(cur) || hashBuf(fs.readFileSync(cur)) !== hashBuf(b)) out.push(rel); }
+    else if (remote.get(rel) !== blobSha(b)) out.push(rel);
+  }
+  return [...new Set(out)];
+}
+
 function listingDiff(app, L) {
   const out = [];
   for (const k of TEXT) if (L.l[k] !== undefined && JSON.stringify(L.l[k]) !== JSON.stringify(app[k])) out.push(k);
@@ -233,9 +299,15 @@ function listingDiff(app, L) {
 }
 
 /** Copies the listing into the hub: text into data/apps/<id>.json, files into content/apps/<id>/. */
-function applyListing(raw, L) {
+function applyListing(raw, L, family = false) {
   for (const k of TEXT) if (L.l[k] !== undefined) raw[k] = L.l[k];
+  if (L.shots) raw.screenshots = L.shots;
   const dir = appDir(raw.id);
+  if (family) {                                          // images go to the private repo (pushFamilyFiles)
+    fs.mkdirSync(dir, { recursive: true });
+    for (const doc of ['privacy.html', 'terms.html']) if (L.files[doc]) fs.copyFileSync(L.files[doc], path.join(dir, doc));
+    return;
+  }
   fs.mkdirSync(path.join(dir, 'shots'), { recursive: true });
   if (Object.keys(L.files).some(r => r.startsWith('icon.'))) for (const f of ['icon.webp', 'icon.png', 'icon.jpg']) fs.rmSync(path.join(dir, f), { force: true });
   if (L.shots) { for (const f of fs.readdirSync(path.join(dir, 'shots'))) fs.rmSync(path.join(dir, 'shots', f)); raw.screenshots = L.shots; }
@@ -296,7 +368,10 @@ async function publish(newApp = null) {
   const backfill = !!flags.backfill;
   if (backfill && !flags.from) stop('--backfill needs --from "<folder with the old build>".');
   const listing = backfill ? null : readListing(folder);
-  const listingChanges = listing ? listingDiff(app, listing) : [];
+  const family = (listing?.l.visibility ?? app.visibility) === 'family';
+  if (family && !created) app = await familyApp(app);
+  if (family) app.visibility = 'family';
+  const listingChanges = !listing ? [] : family ? await listingDiffFamily(app, listing) : listingDiff(app, listing);
   policyGuard(app, listing);
 
   say(c.b(`\n${app.name}: checking ${folder}`));
@@ -340,9 +415,10 @@ async function publish(newApp = null) {
   say(`  notes    ${notes}`);
   for (const ch of changes) say(`           • ${ch}`);
   if (app.platforms.android && build.code != null) say(`  ${c.ok('✓')} signed with the ${app.name} release key`);
+  if (family) say(`  ${c.ok('✓')} family & friends only: files go to the private repository, shown to invited people on ${SITE().baseUrl}/family/`);
   if (created) {
     say(c.b(`\n  New app on Zenith: ${app.name} (${app.visibility})`));
-    say(`  page     ${SITE().baseUrl}/apps/${app.id}/`);
+    say(`  page     ${SITE().baseUrl}/${family ? 'family/' : `apps/${app.id}/`}`);
     if (app.platforms.android) say(`  key      ${app.platforms.android.certSha256}\n           ${c.dim('This signing key is now pinned. Every future update must be signed with the same key.')}`);
   }
   if (listingChanges.length) say(`  listing  ${created ? 'icon, text, screenshots and policy from' : 'updates ' + listingChanges.join(', ') + ' from'} ${c.dim(listing.dir)}`);
@@ -354,25 +430,26 @@ async function publish(newApp = null) {
   git('pull', '--ff-only', '--quiet');
   _data = null;
   if (created && DATA().apps.some(a => a.id === app.id)) stop(`${app.id} was added meanwhile. Run Publish again.`);
-  const fresh = created ? app : appById(app.id);                      // re-read after pull
+  const fresh = created ? app : family ? await familyApp(appById(app.id)) : appById(app.id);   // re-read after pull
   if ((fresh.releases || []).some(r => r.version === build.version)) stop(`${build.version} was published meanwhile.`);
 
   // 1. release + uploads (re-running after a failure resumes here safely)
-  const tag = releaseTag(app, build.version);
-  let rel = await gh('GET', `/releases/tags/${encodeURIComponent(tag)}`);
-  if (!rel) rel = await gh('POST', '/releases', JSON.stringify({ tag_name: tag, target_commitish: git('rev-parse', 'HEAD'), name: `${app.name} ${build.version}`, body: notes, make_latest: 'false' }), { 'Content-Type': 'application/json' });
+  const tag = releaseTag(app, build.version), R = p => family ? FAPI(p) : p;
+  let rel = await gh('GET', R(`/releases/tags/${encodeURIComponent(tag)}`));
+  if (!rel) rel = await gh('POST', R('/releases'), JSON.stringify({ tag_name: tag, ...(!family && { target_commitish: git('rev-parse', 'HEAD') }), name: `${app.name} ${build.version}`, body: notes, make_latest: 'false' }), { 'Content-Type': 'application/json' });
   for (const f of build.files) {
     let asset = rel.assets.find(a => a.name === f.upload);
     if (asset && asset.state !== 'uploaded') {                        // a broken earlier upload: clear it and retry
       say(c.dim(`  removing an unfinished earlier upload of ${f.upload}`));
-      await gh('DELETE', `/releases/assets/${asset.id}`); asset = null;
+      await gh('DELETE', R(`/releases/assets/${asset.id}`)); asset = null;
     }
     if (asset && asset.size !== f.size) stop(`Release ${tag} already has a different ${f.upload}. Delete that file on GitHub and run again.`);
     if (!asset) {
       say(`  uploading ${f.upload} (${mb(f.size)})…`);
       asset = await uploadAsset(rel.upload_url, f.full, f.upload);
     }
-    f.url = asset.browser_download_url;
+    f.url = family ? asset.url : asset.browser_download_url;          // private files are fetched through the API
+    f.assetId = asset.id;
   }
   // 2. prove the public copies are byte-for-byte the files on this PC
   for (const f of build.files) {
@@ -383,10 +460,19 @@ async function publish(newApp = null) {
   }
   // 3. announce: one commit updates page, buttons and feeds together
   // selfDownloads: the check download above, so it isn't counted as someone downloading the app
-  release.files = build.files.map(f => ({ kind: f.kind, name: f.upload, url: f.url, size: f.size, sha256: f.sha256, selfDownloads: 1 }));
-  const raw = created ? created.raw : readJson(fresh._file);
-  if (listingChanges.length) applyListing(raw, listing);
+  release.files = build.files.map(f => ({ kind: f.kind, name: f.upload, url: f.url, size: f.size, sha256: f.sha256, selfDownloads: 1, ...(family && { assetId: f.assetId }) }));
+  let raw = created ? created.raw : family ? Object.fromEntries(Object.entries(fresh).filter(([k]) => k !== '_file')) : readJson(fresh._file);
+  if (family) raw.visibility = 'family';
+  if (listingChanges.length) applyListing(raw, listing, family);
   raw.releases = [...(raw.releases || []), release].sort((a, b) => cmpVersion(b.version, a.version));
+  if (family) {
+    const errs = validate(SITE(), [{ ...raw, _file: fresh._file }]);
+    if (errs.length) stop('The family data would be invalid:\n  ' + errs.join('\n  '));
+    if (listingChanges.length) await pushFamilyFiles(app.id, listing, `${app.name} ${build.version}`);
+    await fPut(`apps/${app.id}.json`, Buffer.from(JSON.stringify(raw, null, 2) + '\n'), `Publish ${app.name} ${build.version}`);
+    say(c.ok(`  recorded in the private repository`));
+    raw = stubOf(raw);                                               // the website keeps only the stub
+  }
   writeJson(fresh._file, raw);
   const touched = [fresh._file, path.join('content', 'apps', app.id)];
   if (created) { CONFIG.apps[app.id] = path.relative(CONFIG.finishedApps, folder); writeJson(path.join(ROOT, 'tools', 'zgs.config.json'), CONFIG); touched.push(path.join('tools', 'zgs.config.json')); }
@@ -396,10 +482,15 @@ async function publish(newApp = null) {
     stop(e.message);
   }
   git('add', '-A', '--', ...touched);
-  git('commit', '--quiet', '-m', `${created ? 'Add and publish' : backfill ? 'Add' : 'Publish'} ${app.name} ${build.version}`);
-  pushWithRetry();
-  say(c.ok(`\nPushed. The site rebuilds in about a minute.`));
-  if (!backfill) await waitLive(app, { ...build, notes });
+  if (git('status', '--porcelain', '--', ...touched)) {
+    git('commit', '--quiet', '-m', `${created ? 'Add and publish' : backfill ? 'Add' : 'Publish'} ${app.name} ${family ? '(family)' : build.version}`);
+    pushWithRetry();
+    say(c.ok(`\nPushed. The site rebuilds in about a minute.`));
+  }
+  if (family) {
+    say(`\n${c.b(`${app.name} ${build.version} is out for family & friends.`)} ${SITE().baseUrl}/family/`);
+    say('Invited people see it there now. The app finds it at its next update check.');
+  } else if (!backfill) await waitLive(app, { ...build, notes });
 }
 
 function pushWithRetry() {
@@ -461,9 +552,12 @@ async function status() {
   const site = SITE(), apps = pos[0] ? [appById(pos[0])] : DATA().apps;
   const counts = {};
   try { for (const r of (await gh('GET', '/releases?per_page=100')) || []) for (const a of r.assets) counts[a.browser_download_url] = a.download_count; } catch (e) { say(c.dim(`(download counts unavailable: ${e.message})`)); }
-  for (const app of apps) {
+  if (apps.some(a => a.visibility === 'family'))
+    try { for (const r of (await gh('GET', FAPI('/releases?per_page=100'))) || []) for (const a of r.assets) counts[a.url] = a.download_count; } catch (e) { say(c.dim(`(family download counts unavailable: ${e.message})`)); }
+  for (const app0 of apps) {
+    const app = app0.visibility === 'family' ? await familyApp(app0) : app0;
     say(`\n${c.b(app.name)} ${c.dim(`[${app.visibility}]`)}`);
-    for (const p of Object.keys(app.platforms)) {
+    for (const p of app.visibility === 'family' ? [] : Object.keys(app.platforms)) {
       const want = latestFor(app, p)?.version || '-';
       let live = '-';
       try { const res = await fetch(`${site.baseUrl}/api/${app.id}/${p}.json?t=${Date.now()}`); if (res.ok) live = (await res.json()).name; } catch { live = '?'; }
@@ -496,6 +590,76 @@ async function verify() {
   say(bad ? c.bad(`\n${bad} problem(s).`) : c.ok('\nAll live files are reachable' + (flags.deep ? ' and match their hashes.' : '.')));
   if (fetched.length) await addSelfDownloads(fetched, 'Leave zgs check downloads out of the counts');
   if (bad) process.exitCode = 1;
+}
+
+/** zgs move <app> family: makes a published app family & friends only. Copies its current files,
+ *  details, icon and screenshots to the private repository, and leaves only a stub (for its privacy
+ *  and terms pages) on the website. The old public files stay on GitHub until you delete them
+ *  (--delete-public removes those releases, after the copy is verified). */
+async function move() {
+  const app = appById(pos[0] || stop('Usage: zgs move <app> family [--delete-public]'));
+  if (pos[1] !== 'family') stop('Only "family" is supported: zgs move <app> family');
+  if (app.visibility === 'family') {
+    if (!flags['delete-public']) stop(`${app.name} is already family-only.`);
+    if (!(await confirm(`Delete the public GitHub releases of ${app.name}? Its private copies stay.`))) stop('Cancelled.');
+    const fam = await familyApp(app);
+    for (const r of fam.releases || []) {
+      const pub = await gh('GET', `/releases/tags/${encodeURIComponent(releaseTag(app, r.version))}`);
+      if (pub) { await gh('DELETE', `/releases/${pub.id}`); say(c.dim(`  deleted public release ${pub.tag_name}`)); }
+    }
+    return say(c.ok('Done.'));
+  }
+  const raw = readJson(app._file), current = new Set(Object.keys(app.platforms).map(p => latestFor(app, p)).filter(Boolean));
+  say(c.b(`\nMove ${app.name} to family & friends only`));
+  say(`  current files copied to ${FAMILY()}: ${[...current].flatMap(r => r.files.map(f => f.name)).join(', ') || 'none'}`);
+  say(`  older versions keep their notes; their old public links are not shown anywhere`);
+  say(`  website keeps: privacy and terms pages, and an "invite only" page at /apps/${app.id}/`);
+  if (flags['delete-public']) say(c.bad(`  then deletes the public GitHub releases of ${app.name}`));
+  if (!(await confirm('Go ahead?'))) stop('Cancelled.');
+  git('pull', '--ff-only', '--quiet');
+  const tmp = fs.mkdtempSync(path.join(process.env.TEMP || process.env.TMPDIR || '/tmp', 'zgs-'));
+  for (const r of raw.releases || []) {
+    if (![...current].some(c0 => c0.version === r.version)) continue;
+    const tag = releaseTag(app, r.version);
+    let rel = await gh('GET', FAPI(`/releases/tags/${encodeURIComponent(tag)}`));
+    if (!rel) rel = await gh('POST', FAPI('/releases'), JSON.stringify({ tag_name: tag, name: `${app.name} ${r.version}`, body: r.notes, make_latest: 'false' }), { 'Content-Type': 'application/json' });
+    for (const f of r.files) {
+      let asset = rel.assets.find(a => a.name === f.name && a.state === 'uploaded' && a.size === f.size);
+      if (!asset) {
+        say(`  copying ${f.name} (${mb(f.size)})…`);
+        const res = await fetch(f.url, { redirect: 'follow' });
+        if (!res.ok) stop(`Couldn't download ${f.url}: ${res.status}`);
+        const local = path.join(tmp, f.name);
+        await new Promise((ok, bad) => { const w = fs.createWriteStream(local); (async () => { for await (const ch of res.body) w.write(ch); w.end(); })().catch(bad); w.on('finish', ok); });
+        if (sha256File(local) !== f.sha256) stop(`${f.name} doesn't match its recorded SHA-256. Nothing moved.`);
+        asset = await uploadAsset(rel.upload_url, local, f.name);
+      }
+      const got = await downloadSha(asset.url);
+      if (got.sha256 !== f.sha256) stop(`The private copy of ${f.name} doesn't match. Nothing moved.`);
+      Object.assign(f, { url: asset.url, assetId: asset.id, selfDownloads: 1 });
+      say(c.ok(`  ✓ ${f.name}`));
+    }
+  }
+  fs.rmSync(tmp, { recursive: true, force: true });
+  raw.visibility = 'family';
+  const dir = appDir(app.id);
+  for (const rel of ['icon.webp', 'icon.png', 'icon.jpg', ...(raw.screenshots || []).map(s => 'shots/' + (typeof s === 'string' ? s : s.file))])
+    if (fs.existsSync(path.join(dir, rel))) await fPut(`apps/${app.id}/${rel}`, fs.readFileSync(path.join(dir, rel)), `Move ${app.name}: ${rel}`);
+  await fPut(`apps/${app.id}.json`, Buffer.from(JSON.stringify(raw, null, 2) + '\n'), `Move ${app.name} here (family & friends only)`);
+  writeJson(app._file, stubOf(raw));
+  fs.rmSync(path.join(dir, 'shots'), { recursive: true, force: true });
+  fs.rmSync(path.join(dir, 'share.png'), { force: true });
+  _data = null; loadData();
+  git('add', '-A', '--', app._file, path.join('content', 'apps', app.id));
+  git('commit', '--quiet', '-m', `${app.name} is now family & friends only`);
+  pushWithRetry();
+  say(c.ok(`\n${app.name} moved. Invited people find it on ${SITE().baseUrl}/family/`));
+  if (flags['delete-public']) {
+    for (const r of raw.releases || []) {
+      const pub = await gh('GET', `/releases/tags/${encodeURIComponent(releaseTag(app, r.version))}`);
+      if (pub) { await gh('DELETE', `/releases/${pub.id}`); say(c.dim(`  deleted public release ${pub.tag_name}`)); }
+    }
+  } else say(c.dim(`The public GitHub releases of ${app.name} still exist (nothing links to them). Remove them later with: zgs move ${app.id} family --delete-public`));
 }
 
 /** Adds 1 to selfDownloads for each URL (one commit), so these downloads aren't counted as people. */
@@ -540,8 +704,9 @@ function policyGuard(app, listing = null) {
 /** No command: list apps, what's live and what's waiting, then publish the one you pick. */
 async function menu() {
   const rows = [];
-  for (const app of DATA().apps) {
-    if (!CONFIG.apps[app.id] || app.visibility === 'private') continue;
+  for (const app0 of DATA().apps) {
+    if (!CONFIG.apps[app0.id] || app0.visibility === 'private') continue;
+    const app = app0.visibility === 'family' ? await familyApp(app0) : app0;
     const live = (app.releases || []).find(r => r.status === 'live')?.version || '-';
     let state, ready = false;
     try {
@@ -569,7 +734,7 @@ async function menu() {
   return publish();
 }
 
-const COMMANDS = { publish: () => publish(), pull, status, verify, mine };
+const COMMANDS = { publish: () => publish(), pull, status, verify, mine, move };
 try {
   if (!cmd) await menu();
   else if (!COMMANDS[cmd]) { say(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 10).map(l => l.replace(/^\/\/ ?/, '')).join('\n')); process.exitCode = 1; }

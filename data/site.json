@@ -11,5 +11,10 @@
     "apps/bambowl.json": "bambowl"
   },
   "termsUpdated": "2026-10-24",
-  "googleSiteVerification": "I2coyKWhpuYIgmmWT4-8BmWwzxm3FT14MqeMlIF5Bv0"
+  "googleSiteVerification": "I2coyKWhpuYIgmmWT4-8BmWwzxm3FT14MqeMlIF5Bv0",
+  "family": {
+    "repo": "tinypanda-collab/pandalume-family",
+    "supabaseUrl": "https://oeffkydfujcasphguxjr.supabase.co",
+    "publishableKey": "sb_publishable_xzUHvWx6GUc-NiL7cAhNHg_CjcC7IbJ"
+  }
 }

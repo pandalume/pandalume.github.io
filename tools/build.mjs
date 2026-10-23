@@ -61,13 +61,13 @@ const iconOf = id => '/apps/' + id + '/' + (['icon.webp', 'icon.png', 'icon.jpg'
 
 const LOGO = `<img class="zg-logo" src="/assets/zg-logo.webp" alt="" width="38" height="38">`;
 
-function page({ title, description, body, noindex = false, canonical = '', image = '' }) {
+function page({ title, description, body, noindex = false, canonical = '', image = '', csp = '', scripts = '' }) {
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="${csp || "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"}">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 ${noindex ? '<meta name="robots" content="noindex">\n' : ''}${canonical ? `<link rel="canonical" href="${esc(canonical)}">\n` : ''}<meta property="og:title" content="${esc(title)}">
@@ -81,7 +81,7 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">\n` : ''}<met
 <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/assets/site.css">
-<script src="/assets/site.js" defer></script>
+<script src="/assets/site.js" defer></script>${scripts}
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -94,7 +94,7 @@ ${body}
 </main>
 <footer class="wrap foot">
   <p>No ads. No tracking. No cookies.</p>
-  <p><a href="/">Home</a><a href="/updates/">What's new</a><a href="/install/">Install help</a><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a><a href="mailto:${esc(site.contact)}">Contact</a></p>
+  <p><a href="/">Home</a><a href="/updates/">What's new</a><a href="/install/">Install help</a>${site.family ? '<a href="/family/">Family &amp; friends</a>' : ''}<a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a><a href="mailto:${esc(site.contact)}">Contact</a></p>
   <p class="muted studio-foot"><img src="/assets/pandalume-mark.webp" alt="" width="28" height="28">© ${new Date().getUTCFullYear()} ${esc(site.developer)} · ${esc(site.name)}</p>
 </footer>
 </body>
@@ -204,7 +204,36 @@ function hashes(files) {
     `<div><span class="muted small">${esc(f.name)}</span><code>${f.sha256}</code><button type="button" class="copy" data-copy="${f.sha256}">Copy</button></div>`).join('')}</details>`;
 }
 
+// A family app's public page only says where to find it; its details are on the Family page.
+function familyStubPage(app) {
+  return page({
+    title: `${app.name} · ${site.name}`, description: `${app.name} is shared with family and friends.`, noindex: true,
+    body: `<section class="hero"><h1>${esc(app.name)}</h1>
+<p>${esc(app.name)} is shared with family and friends of ${esc(site.developer)}. If you've been invited, sign in on the Family page to download it.</p>
+<p><a class="btn btn-iri" href="/family/#${app.id}">Go to the Family page</a></p>
+<p class="small"><a href="/apps/${app.id}/privacy/">${esc(app.name)} privacy policy</a> · <a href="/apps/${app.id}/terms/">Terms of use</a></p></section>`
+  });
+}
+
+// The Family page: Google sign-in, then the apps this person is invited to (assets/family.js).
+function familyPage() {
+  const f = site.family;
+  return page({
+    title: `Family & friends · ${site.name}`, description: `Apps ${site.developer} shares with family and friends.`, noindex: true,
+    canonical: site.baseUrl + '/family/',
+    csp: `default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self' ${f.supabaseUrl}; base-uri 'none'; form-action 'none'`,
+    scripts: `\n<script src="/assets/family.js" defer></script>`,
+    body: `<section class="hero"><h1>Family &amp; friends</h1>
+<p>Apps ${esc(site.developer)} shares with people it knows. Sign in with the Google account you were invited with.</p></section>
+<div id="family" data-supabase="${esc(f.supabaseUrl)}" data-key="${esc(f.publishableKey)}" data-contact="${esc(site.contact)}">
+<noscript><p>The Family page needs JavaScript.</p></noscript>
+<p class="muted" data-state="loading">Loading…</p></div>
+<p class="small muted">Signing in here tells our server only your email address, to check the invite list. See the <a href="/privacy.html">privacy policy</a>.</p>`
+  });
+}
+
 function appPage(app) {
+  if (app.visibility === 'family') return familyStubPage(app);
   const plats = Object.keys(app.platforms);
   const latestAny = (app.releases || []).find(r => r.status === 'live');
   const total = appCount(app);
@@ -418,6 +447,7 @@ write('privacy.html', docPage('privacy'));
 write('terms.html', docPage('terms'));
 write('404.html', page({ title: `Not found · ${site.name}`, description: 'Page not found', noindex: true, body: `<section class="hero"><h1>Page not found</h1><p>That page doesn't exist, or it moved.</p></section><ul class="updates">${listed.map(a => `<li><a class="upd" href="/apps/${a.id}/"><img class="icon" src="${iconOf(a.id)}" alt="" width="44" height="44"><span><b>${esc(a.name)}</b><br><span class="small">${esc(a.tagline)}</span></span></a></li>`).join('')}</ul><p><a href="/">All apps</a></p>` }));
 write('updates/index.html', updatesPage());
+if (site.family) write('family/index.html', familyPage());
 write('feed.xml', atomFeed());
 
 const catalog = [];

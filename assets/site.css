@@ -191,3 +191,26 @@ pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px
 .ds-more ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 .ds-more li b { display: block; font-weight: 600; font-size: 14px; }
 .ds-more li span { color: var(--muted); font-size: 13px; }
+
+/* family page */
+.family-signin { max-width: 520px; }
+.family-notice { background: rgba(251, 191, 36, .1); border: 1px solid rgba(251, 191, 36, .4); border-radius: 10px; padding: 10px 14px; }
+.fam-who { margin-bottom: 16px; }
+.fam-app { margin-bottom: 20px; scroll-margin-top: 80px; }
+.fam-head { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; }
+.fam-head h2 { margin: 0; }
+.fam-head .tag { margin: 4px 0 0; }
+.fam-dl { margin: 10px 0; }
+.fam-more { margin-top: 12px; }
+.fam-more > summary { cursor: pointer; color: var(--cyan); }
+.fam-more h3 { font-size: 16px; margin: 18px 0 8px; }
+.fam-more .shots { margin-top: 12px; }
+.fam-owner { margin-top: 28px; }
+.fam-members { list-style: none; padding: 0; display: grid; gap: 10px; }
+.fam-members li { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+.fam-form { display: grid; gap: 10px; max-width: 460px; }
+.fam-form label { display: grid; gap: 4px; font-size: 14px; }
+.fam-form input[type=email], .fam-form input[type=text] { font: inherit; color: var(--text); background: var(--bg2); border: 1px solid var(--line2); border-radius: 8px; padding: 8px 10px; }
+.fam-form fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; display: grid; gap: 6px; }
+.fam-form .chk { display: flex; gap: 8px; align-items: center; }
+.fam-app button.btn { font: inherit; }

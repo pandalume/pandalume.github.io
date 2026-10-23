@@ -45,7 +45,7 @@ export function validate(site, apps) {
     if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(a.id || '')) { w('id must be lowercase-with-dashes'); continue; }
     if (ids.has(a.id)) w('duplicate id'); ids.add(a.id);
     if (path.basename(a._file) !== a.id + '.json') w('file name must be <id>.json');
-    if (!['public', 'unlisted', 'private'].includes(a.visibility)) w('visibility must be public, unlisted or private');
+    if (!['public', 'unlisted', 'family', 'private'].includes(a.visibility)) w('visibility must be public, unlisted, family or private');
     if (!a.name || !a.tagline) w('name and tagline are required');
     for (const p of Object.keys(a.platforms || {})) if (!PLATFORMS[p]) w(`unknown platform ${p}`);
     if (a.shotStyle && !['clean', 'phone'].includes(a.shotStyle)) w('shotStyle must be clean or phone');

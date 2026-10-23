@@ -93,6 +93,14 @@ t('every internal link and image resolves to a file', () => {
     }
   }
 });
+t('family apps: only an invite page and policies, no feeds, not listed', () => {
+  assert.ok(html('apps/secret-app/index.html').includes('/family/#secret-app'));
+  assert.ok(fs.existsSync(path.join(OUT, 'apps/secret-app/privacy/index.html')));
+  for (const f of ['api/secret-app/android.json', 'api/secret-app/windows.json', 'get/secret-app/windows/index.html']) assert.ok(!fs.existsSync(path.join(OUT, f)), f);
+  assert.ok(!html('index.html').includes('Secret App') && !fs.readFileSync(path.join(OUT, 'sitemap.xml'), 'utf8').includes('secret-app'));
+  const fam = html('family/index.html');
+  assert.ok(fam.includes('connect-src \'self\' https://example.supabase.co') && fam.includes('/assets/family.js') && fam.includes('noindex'));
+});
 t('no third-party scripts, styles or fonts', () => {
   for (const f of walk(OUT).filter(f => f.endsWith('.html'))) {
     const h = fs.readFileSync(f, 'utf8');
