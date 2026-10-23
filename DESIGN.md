@@ -7,12 +7,12 @@ Status: proposal, 22 Oct 2026. The build plan is at the bottom.
 | Level | Name | Shown where |
 |---|---|---|
 | Storefront (this site) | **Zenith Gen Orbit** | Site header and footer, "Published on Zenith Gen Orbit" |
-| Developer studio | **TinyAi Studio** | The main credit: "by TinyAi Studio", the privacy policy, "© TinyAi Studio" in apps |
+| Developer studio | **Pandalume Studio** | The main credit: "by Pandalume Studio", the privacy policy, "© Pandalume Studio" in apps |
 | Products | Bambowl, Quillix Note, Cypher Vault, … | App pages |
 | Legal | Jon personally, until a business is registered | Only where the law or a platform requires it (Android verification, code signing) |
 | Accounts | tinyaiprojects@gmail.com owns GitHub/Supabase/Google Cloud. Keep it private, and use support@<domain> publicly once there is a domain. | n/a |
 
-New package IDs use the studio: `com.tinyaistudio.<app>` (or the bought domain, reversed). Existing `com.jon.*` IDs never change.
+New package IDs use the studio: `com.pandalume.<app>` (or the bought domain, reversed). Existing `com.jon.*` IDs never change.
 
 ## In one paragraph
 

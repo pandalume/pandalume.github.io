@@ -65,11 +65,11 @@ t('terms pages exist for the site and each app', () => {
   assert.match(html('apps/bambowl/terms/index.html'), /Food safety/);
   assert.ok(!html('apps/bambowl/terms/index.html').includes('master password'));
 });
-t('app page credits the studio and the storefront', () => assert.match(html('apps/bambowl/index.html'), /by <b>TinyAi Studio<\/b>.*Published on Zenith Gen Orbit/));
+t('app page credits the studio and the storefront', () => assert.match(html('apps/bambowl/index.html'), /by <b>Pandalume Studio<\/b>.*Published on Zenith Gen Orbit/));
 t('/get short link redirects to newest APK', () => assert.ok(html('get/bambowl/android/index.html').includes('Bambowl-1.6.1.apk')));
 t('privacy policy: studio + storefront named, contact filled in, old name gone', () => {
   const p = html('privacy.html');
-  assert.ok(p.includes(site.contact) && p.includes('made by TinyAi Studio') && p.includes('published on Zenith Gen Orbit')); assert.ok(!p.includes('{{')); assert.ok(!/T Panda/i.test(p));
+  assert.ok(p.includes(site.contact) && p.includes('made by Pandalume Studio') && p.includes('published on Zenith Gen Orbit')); assert.ok(!p.includes('{{')); assert.ok(!/T Panda/i.test(p));
 });
 t('every internal link and image resolves to a file', () => {
   for (const f of walk(OUT).filter(f => f.endsWith('.html'))) {
