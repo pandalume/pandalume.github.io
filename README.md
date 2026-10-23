@@ -3,7 +3,7 @@
 The storefront for the apps and games made by **Pandalume Studio**. It has a page for each app with downloads, every older version,
 install help, privacy policies, and the small "latest version" files the apps check for updates.
 
-Live at **https://tinypanda-collab.github.io**, a free GitHub Pages site built from this repo.
+Live at **https://pandalume.github.io** (the old address, tinypanda-collab.github.io, forwards here), a free GitHub Pages site built from this repo.
 Builds are stored as files on this repo's **Releases**. Nothing runs on your PC except when you
 publish. `DESIGN.md` explains why it's built this way.
 

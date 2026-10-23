@@ -3,8 +3,8 @@
   "developer": "Pandalume Studio",
   "developerAbout": "an independent developer based in Kuala Lumpur, Malaysia",
   "tagline": "Apps and games by Pandalume Studio. No ads, no tracking.",
-  "baseUrl": "https://tinypanda-collab.github.io",
-  "repo": "tinypanda-collab/tinypanda-collab.github.io",
+  "baseUrl": "https://pandalume.github.io",
+  "repo": "pandalume/pandalume.github.io",
   "contact": "tinyaiprojects@gmail.com",
   "privacyUpdated": "2026-10-24",
   "legacyFeeds": {
@@ -13,8 +13,10 @@
   "termsUpdated": "2026-10-24",
   "googleSiteVerification": "I2coyKWhpuYIgmmWT4-8BmWwzxm3FT14MqeMlIF5Bv0",
   "family": {
-    "repo": "tinypanda-collab/pandalume-family",
+    "repo": "pandalume/pandalume-family",
     "supabaseUrl": "https://oeffkydfujcasphguxjr.supabase.co",
     "publishableKey": "sb_publishable_xzUHvWx6GUc-NiL7cAhNHg_CjcC7IbJ"
-  }
+  },
+  "legacyBaseUrl": "https://tinypanda-collab.github.io",
+  "legacyRepo": "tinypanda-collab/tinypanda-collab.github.io"
 }

@@ -15,5 +15,7 @@
     "repo": "o/family",
     "supabaseUrl": "https://example.supabase.co",
     "publishableKey": "sb_publishable_test"
-  }
+  },
+  "legacyBaseUrl": "https://old.example.github.io",
+  "legacyRepo": "old/old.github.io"
 }

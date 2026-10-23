@@ -16,10 +16,10 @@
 // DELETE ?action=members&email=<email>          owners only: remove someone
 //
 // Secrets: FAMILY_GITHUB_TOKEN (fine-grained, read-only Contents on FAMILY_REPO only).
-// Optional: FAMILY_REPO (default tinypanda-collab/pandalume-family), OWNER_EMAILS (comma-separated).
+// Optional: FAMILY_REPO (default pandalume/pandalume-family), OWNER_EMAILS (comma-separated).
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 
-const REPO = Deno.env.get('FAMILY_REPO') ?? 'tinypanda-collab/pandalume-family';
+const REPO = Deno.env.get('FAMILY_REPO') ?? 'pandalume/pandalume-family';
 const OWNERS = (Deno.env.get('OWNER_EMAILS') ?? 'tinyaiprojects@gmail.com,dekloongjohn@gmail.com')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
@@ -152,7 +152,7 @@ Deno.serve(async req => {
       const platform = q.get('platform') ?? '';
       const r = latestFor(app, platform);
       if (!r) return json({ error: `No ${platform} version.` }, 404);
-      const page = 'https://tinypanda-collab.github.io/family/#' + app.id;
+      const page = 'https://pandalume.github.io/family/#' + app.id;
       if (platform === 'android') {
         const f = r.files.find((f: any) => f.kind === 'apk');
         return json({ name: r.version, code: r.code, apk: await signedUrl(f.assetId), notes: r.notes, sha256: f.sha256, size: f.size, published: r.date, page });

@@ -479,4 +479,30 @@ write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${site.baseUrl}/sitemap.x
 const urls = ['/', '/updates/', '/install/', '/privacy.html', '/terms.html', ...listed.flatMap(a => [`/apps/${a.id}/`, `/apps/${a.id}/privacy/`, `/apps/${a.id}/terms/`])];
 write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${site.baseUrl}${u}</loc></url>`).join('\n')}\n</urlset>\n`);
 
+// ---------- the old address (forwarding site) ----------
+// After the GitHub account was renamed, the old address is kept by a second account so apps installed
+// before the move still get updates. It holds exact copies of every update feed (apps read JSON, which
+// can't be redirected on GitHub Pages) and a forwarding page for every page. Pushed by the workflow.
+if (site.legacyBaseUrl) {
+  const LEG = OUT + '-legacy';
+  fs.rmSync(LEG, { recursive: true, force: true });
+  const walkOut = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walkOut(path.join(d, e.name)) : [path.join(d, e.name)]);
+  for (const f of walkOut(OUT)) {
+    const rel = path.relative(OUT, f).split(path.sep).join('/'), dst = path.join(LEG, rel);
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
+    if (rel.endsWith('.json') || rel === 'feed.xml') fs.copyFileSync(f, dst);
+    else if (rel.endsWith('.html') && rel !== '404.html') {
+      const to = `${site.baseUrl}/${rel.replace(/(^|\/)index\.html$/, '$1')}`;
+      fs.writeFileSync(dst, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex">
+<link rel="canonical" href="${esc(to)}"><meta http-equiv="refresh" content="0; url=${esc(to)}"><title>${esc(site.name)} has moved</title></head>
+<body><p>${esc(site.name)} has moved to <a href="${esc(to)}">${esc(site.baseUrl.replace('https://', ''))}</a>.</p></body></html>\n`);
+    }
+  }
+  fs.writeFileSync(path.join(LEG, '404.html'), `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>Moved</title>
+<script>location.replace(${JSON.stringify(site.baseUrl)} + location.pathname + location.search + location.hash)</script></head>
+<body><p>This site has moved to <a href="${esc(site.baseUrl)}/">${esc(site.baseUrl.replace('https://', ''))}</a>.</p></body></html>\n`);
+  fs.writeFileSync(path.join(LEG, '.nojekyll'), '');
+  fs.writeFileSync(path.join(LEG, 'README.md'), `# Moved\n\nThis address forwards to ${site.baseUrl}. It is updated automatically from ${site.repo}; don't edit it here.\n`);
+}
+
 console.log(`Built ${apps.length} app page(s) (${listed.length} listed) into ${path.relative(ROOT, OUT) || OUT}`);

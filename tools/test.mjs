@@ -101,6 +101,13 @@ t('family apps: only an invite page and policies, no feeds, not listed', () => {
   const fam = html('family/index.html');
   assert.ok(fam.includes('connect-src \'self\' https://example.supabase.co') && fam.includes('/assets/family.js') && fam.includes('noindex'));
 });
+t('old address: feeds copied exactly, pages forward', () => {
+  const LEG = OUT + '-legacy';
+  if (!site.legacyBaseUrl) return;
+  assert.equal(fs.readFileSync(path.join(LEG, 'api/bambowl/android.json'), 'utf8'), fs.readFileSync(path.join(OUT, 'api/bambowl/android.json'), 'utf8'));
+  assert.ok(fs.readFileSync(path.join(LEG, 'apps/bambowl/index.html'), 'utf8').includes(`url=${site.baseUrl}/apps/bambowl/`));
+  assert.ok(fs.readFileSync(path.join(LEG, '404.html'), 'utf8').includes('location.replace'));
+});
 t('no third-party scripts, styles or fonts', () => {
   for (const f of walk(OUT).filter(f => f.endsWith('.html'))) {
     const h = fs.readFileSync(f, 'utf8');
