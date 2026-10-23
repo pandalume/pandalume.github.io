@@ -33,14 +33,16 @@
           "name": "Cypher-Vault-Portable-1.1.0.exe",
           "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/cypher-vault-1.1.0/Cypher-Vault-Portable-1.1.0.exe",
           "size": 111955612,
-          "sha256": "1eac56c8e433bd9f6467dcfb4d89c7b7c37fce9dd036cb6e92c73c61c142b095"
+          "sha256": "1eac56c8e433bd9f6467dcfb4d89c7b7c37fce9dd036cb6e92c73c61c142b095",
+          "selfDownloads": 1
         },
         {
           "kind": "setup",
           "name": "Cypher-Vault-Setup-1.1.0.exe",
           "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/cypher-vault-1.1.0/Cypher-Vault-Setup-1.1.0.exe",
           "size": 112324304,
-          "sha256": "a2f4ebd10e0f25b8dc967c720359b8355da0abe01dcc3453bd8ada1bae54eb1b"
+          "sha256": "a2f4ebd10e0f25b8dc967c720359b8355da0abe01dcc3453bd8ada1bae54eb1b",
+          "selfDownloads": 1
         }
       ]
     }

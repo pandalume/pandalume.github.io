@@ -63,10 +63,16 @@ Command-line form: `node tools/zgs.mjs publish bambowl --dry-run` (checks only).
 
 ## Adding an app
 
-1. Create `data/apps/<id>.json` (copy an existing one). For Android, get the `certSha256` with
-   `apksigner verify --print-certs <apk>`.
-2. Put `icon.webp` (256×256) and any screenshots in `content/apps/<id>/`.
-3. Add the app's `Finished Apps` folder to `tools/zgs.config.json`, commit, then publish.
+Normally nothing to do here: put a `Store listing` folder next to the app's builds in Finished Apps
+(`Studio Standards\README.md` section 9 explains it). Publish then lists it as "new app, not on Zenith
+yet" and creates `data/apps/<id>.json`, `content/apps/<id>/` and the zgs.config.json entry itself.
+The same folder updates the page text, icon, screenshots and policy section on later releases.
+
+## Download counts
+
+GitHub counts every download. zgs leaves out its own check downloads, and `zgs mine <app>` (or
+"m" in the menu) leaves out one you made yourself. The page shows rounded figures like Google
+Play ("5+", "100+"); `zgs status` shows the exact numbers. Nothing about who downloaded is recorded.
 
 ## Previewing locally
 

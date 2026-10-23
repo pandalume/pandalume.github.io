@@ -48,6 +48,8 @@ export function validate(site, apps) {
     if (!['public', 'unlisted', 'private'].includes(a.visibility)) w('visibility must be public, unlisted or private');
     if (!a.name || !a.tagline) w('name and tagline are required');
     for (const p of Object.keys(a.platforms || {})) if (!PLATFORMS[p]) w(`unknown platform ${p}`);
+    if (a.shotStyle && !['clean', 'phone'].includes(a.shotStyle)) w('shotStyle must be clean or phone');
+    for (const s of a.screenshots || []) if (!(typeof s === 'string' ? s : s?.file)) w('each screenshot is a file name or { "file": … }');
     const and = a.platforms?.android;
     if (and && !/^[0-9a-f]{64}$/.test(and.certSha256 || '')) w('platforms.android.certSha256 must be the 64-hex signing certificate digest');
     const seen = new Set();
@@ -68,6 +70,7 @@ export function validate(site, apps) {
         if (!https(f.url)) rv(`file ${f.name}: url must be https`);
         if (!/^[0-9a-f]{64}$/.test(f.sha256 || '')) rv(`file ${f.name}: sha256 missing`);
         if (!(f.size > 0)) rv(`file ${f.name}: size missing`);
+        if (f.selfDownloads != null && !(Number.isInteger(f.selfDownloads) && f.selfDownloads >= 0)) rv(`file ${f.name}: selfDownloads must be a whole number`);
       }
       const apk = r.files?.find(f => f.kind === 'apk');
       if (apk && !Number.isInteger(r.code)) rv('a release with an APK needs its versionCode as "code"');

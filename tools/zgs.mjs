@@ -7,6 +7,7 @@
 //   node tools/zgs.mjs pull <app> <version> --reason "…" [--delete-files] [--yes]
 //   node tools/zgs.mjs status [app]
 //   node tools/zgs.mjs verify [--deep]
+//   node tools/zgs.mjs mine <app> [android|windows]   don't count a download you made yourself
 //
 // publish: reads the newest build from Finished Apps, checks it, uploads it to a GitHub release,
 // re-downloads every file to confirm its SHA-256, and only then records the version in
@@ -18,10 +19,11 @@ import crypto from 'node:crypto';
 import readline from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 import https from 'node:https';
-import { ROOT, KINDS, NOTES_MAX, loadData, readJson, writeJson, validate, cmpVersion, latestFor, releaseTag, androidFeed, windowsFeed, pendingPolicyChanges } from './lib.mjs';
+import { ROOT, KINDS, PLATFORMS, NOTES_MAX, loadData, readJson, writeJson, validate, cmpVersion, latestFor, releaseTag, androidFeed, windowsFeed, pendingPolicyChanges } from './lib.mjs';
 
 const CONFIG = readJson(path.join(ROOT, 'tools', 'zgs.config.json'));
-const [cmd, ...rest] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const [cmd, ...rest] = argv[0]?.startsWith('--') ? [undefined, ...argv] : argv;   // flags alone = menu with flags
 const flags = {}, pos = [];
 for (let i = 0; i < rest.length; i++) {
   const a = rest[i];
@@ -175,13 +177,112 @@ function findBuild(app, folder) {
   return { version: versions[0], code, files: picked };
 }
 
+// ---------- store listing ----------
+// An app chat can set up (and later update) the app's page without the hub chat by keeping a
+// "Store listing" folder next to the builds:  listing.json, icon, screenshots\, screenshots-windows\,
+// privacy.html, terms.html. Studio Standards\README.md explains each file.
+const LISTING = 'Store listing', IMG = /\.(webp|png|jpe?g)$/i, TEXT = ['name', 'tagline', 'category', 'description', 'features', 'contentNoun', 'shotStyle'];
+const hashBuf = b => crypto.createHash('sha256').update(b).digest('hex');
+const appDir = id => path.join(ROOT, 'content', 'apps', id);
+
+function readListing(folder) {
+  const dir = path.join(folder, LISTING), file = path.join(dir, 'listing.json');
+  if (!fs.existsSync(file)) return null;
+  let l; try { l = readJson(file); } catch (e) { stop(`${file} is not valid JSON: ${e.message}`); }
+  const pics = sub => { const d = path.join(dir, sub); return fs.existsSync(d) ? fs.readdirSync(d).filter(f => IMG.test(f)).sort().map(f => path.join(d, f)) : []; };
+  const files = {};                                     // path under content/apps/<id>/ -> source file
+  const icon = ['icon.webp', 'icon.png', 'icon.jpg'].map(f => path.join(dir, f)).find(f => fs.existsSync(f));
+  if (icon) files[path.basename(icon)] = icon;
+  const phone = pics('screenshots'), wide = pics('screenshots-windows'), shots = [];
+  phone.forEach((f, i) => { const n = `${String(i + 1).padStart(2, '0')}${path.extname(f).toLowerCase()}`; files['shots/' + n] = f; shots.push(n); });
+  wide.forEach((f, i) => { const n = `win-${String(i + 1).padStart(2, '0')}${path.extname(f).toLowerCase()}`; files['shots/' + n] = f; shots.push({ file: n, wide: true }); });
+  for (const doc of ['privacy.html', 'terms.html']) {
+    const f = path.join(dir, doc);
+    if (!fs.existsSync(f)) continue;
+    if (/<script|<iframe|<html|<body|\son\w+\s*=/i.test(fs.readFileSync(f, 'utf8'))) stop(`${f} must be a plain HTML section (headings, paragraphs, lists), with no scripts or <html>/<body>.`);
+    files[doc] = f;
+  }
+  for (const [rel, f] of Object.entries(files)) if (/\.(webp|png|jpe?g)$/i.test(f) && fs.statSync(f).size > 1.5e6) stop(`${f} is ${mb(fs.statSync(f).size)}. Keep images under 1.5 MB (1080 px wide is plenty).`);
+  return { dir, l, files, shots: phone.length + wide.length ? shots : null };
+}
+
+/** What the listing would change on an existing (or new) app, without writing anything. */
+function listingDiff(app, L) {
+  const out = [];
+  for (const k of TEXT) if (L.l[k] !== undefined && JSON.stringify(L.l[k]) !== JSON.stringify(app[k])) out.push(k);
+  if (L.shots && JSON.stringify(L.shots) !== JSON.stringify(app.screenshots || [])) out.push('screenshots list');
+  for (const [rel, f] of Object.entries(L.files)) {
+    const cur = path.join(appDir(app.id), rel);
+    if (!fs.existsSync(cur) || hashBuf(fs.readFileSync(cur)) !== hashBuf(fs.readFileSync(f))) out.push(rel);
+  }
+  return [...new Set(out)];
+}
+
+/** Copies the listing into the hub: text into data/apps/<id>.json, files into content/apps/<id>/. */
+function applyListing(raw, L) {
+  for (const k of TEXT) if (L.l[k] !== undefined) raw[k] = L.l[k];
+  const dir = appDir(raw.id);
+  fs.mkdirSync(path.join(dir, 'shots'), { recursive: true });
+  if (Object.keys(L.files).some(r => r.startsWith('icon.'))) for (const f of ['icon.webp', 'icon.png', 'icon.jpg']) fs.rmSync(path.join(dir, f), { force: true });
+  if (L.shots) { for (const f of fs.readdirSync(path.join(dir, 'shots'))) fs.rmSync(path.join(dir, 'shots', f)); raw.screenshots = L.shots; }
+  for (const [rel, f] of Object.entries(L.files)) fs.copyFileSync(f, path.join(dir, rel));
+}
+
+/** Builds the data entry for an app that isn't on Zenith yet, from its listing and its build. */
+function newAppFromListing(L, folder) {
+  const l = L.l, id = l.id;
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id || '')) stop(`listing.json needs "id": lowercase-with-dashes, e.g. "my-app".`);
+  for (const k of ['name', 'tagline']) if (!l[k]) stop(`listing.json needs "${k}".`);
+  if (!Object.keys(L.files).some(r => r.startsWith('icon.'))) stop(`${L.dir} needs icon.png or icon.webp (512 x 512).`);
+  if (!L.files['privacy.html']) stop(`${L.dir} needs privacy.html (what the app collects and where it goes; see Studio Standards).`);
+  const platforms = {};
+  for (const [p, info] of Object.entries(l.platforms || {})) {
+    if (!PLATFORMS[p]) stop(`listing.json: unknown platform "${p}" (use android or windows).`);
+    platforms[p] = { ...(info.requires && { requires: info.requires }) };
+  }
+  if (!Object.keys(platforms).length) stop('listing.json needs "platforms", e.g. { "android": { "requires": "Android 8.0 or newer" } }.');
+  if (platforms.android) {
+    const apk = fs.readdirSync(folder).find(f => /\.apk$/i.test(f)) || stop(`No APK in ${folder} to read the package and signing key from.`);
+    const info = inspectApk(path.join(folder, apk));
+    if (info.certs.length !== 1) stop(`${apk} has ${info.certs.length} signing certificates; expected one.`);
+    platforms.android = { package: info.package, certSha256: info.certs[0], ...platforms.android };
+  }
+  const order = Math.max(0, ...DATA().apps.map(a => a.order || 0)) + 1;
+  const raw = { id, name: l.name, order, visibility: l.visibility || 'public', tagline: l.tagline, screenshots: [], platforms, releases: [] };
+  return { raw, app: { ...raw, _file: path.join(ROOT, 'data', 'apps', id + '.json') } };
+}
+
+/** Finished Apps folders that have a Store listing for an app Zenith doesn't know yet. */
+function newListings() {
+  const known = new Set(DATA().apps.map(a => a.id)), found = [];
+  const walk = (dir, depth) => {
+    if (depth > 3 || !fs.existsSync(dir)) return;
+    if (fs.existsSync(path.join(dir, LISTING, 'listing.json'))) {
+      try { const id = readJson(path.join(dir, LISTING, 'listing.json')).id; if (id && !known.has(id)) found.push({ id, folder: dir }); } catch { /* reported when chosen */ }
+      return;
+    }
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) if (e.isDirectory() && !e.name.startsWith('_')) walk(path.join(dir, e.name), depth + 1);
+  };
+  walk(CONFIG.finishedApps, 0);
+  return found;
+}
+
 // ---------- commands ----------
-async function publish() {
-  const app = appById(pos[0] || stop('Which app? e.g. zgs publish bambowl'));
-  const folder = flags.from || path.join(CONFIG.finishedApps, CONFIG.apps[app.id] || stop(`Add "${app.id}" to tools/zgs.config.json (its folder under Finished Apps).`));
+async function publish(newApp = null) {
+  let app, folder, created = null;
+  if (newApp) {                                                       // first publish of an app found by its Store listing
+    folder = newApp.folder;
+    created = newAppFromListing(readListing(folder), folder);
+    app = created.app;
+  } else {
+    app = appById(pos[0] || stop('Which app? e.g. zgs publish bambowl'));
+    folder = flags.from || path.join(CONFIG.finishedApps, CONFIG.apps[app.id] || stop(`Add "${app.id}" to tools/zgs.config.json (its folder under Finished Apps).`));
+  }
   const backfill = !!flags.backfill;
   if (backfill && !flags.from) stop('--backfill needs --from "<folder with the old build>".');
-  policyGuard(app);
+  const listing = backfill ? null : readListing(folder);
+  const listingChanges = listing ? listingDiff(app, listing) : [];
+  policyGuard(app, listing);
 
   say(c.b(`\n${app.name}: checking ${folder}`));
   const build = findBuild(app, folder);
@@ -218,13 +319,21 @@ async function publish() {
   say(`  notes    ${notes}`);
   for (const ch of changes) say(`           • ${ch}`);
   if (app.platforms.android && build.code != null) say(`  ${c.ok('✓')} signed with the ${app.name} release key`);
+  if (created) {
+    say(c.b(`\n  New app on Zenith: ${app.name} (${app.visibility})`));
+    say(`  page     ${SITE().baseUrl}/apps/${app.id}/`);
+    if (app.platforms.android) say(`  key      ${app.platforms.android.certSha256}\n           ${c.dim('This signing key is now pinned. Every future update must be signed with the same key.')}`);
+  }
+  if (listingChanges.length) say(`  listing  ${created ? 'icon, text, screenshots and policy from' : 'updates ' + listingChanges.join(', ') + ' from'} ${c.dim(listing.dir)}`);
   if (flags['dry-run']) { say(c.ok('\nDry run: all checks passed. Nothing was uploaded.')); return; }
   if (!(await confirm('\nPublish this?'))) stop('Cancelled. Nothing changed.');
 
   // git must be clean and current, so the push can't clash
-  if (git('status', '--porcelain', '--', 'data')) stop('data/ has uncommitted changes. Commit or undo them first.');
+  if (git('status', '--porcelain', '--', 'data', 'content', 'tools/zgs.config.json')) stop('data/ or content/ has uncommitted changes. Commit or undo them first.');
   git('pull', '--ff-only', '--quiet');
-  _data = null; const fresh = appById(app.id);                        // re-read after pull
+  _data = null;
+  if (created && DATA().apps.some(a => a.id === app.id)) stop(`${app.id} was added meanwhile. Run Publish again.`);
+  const fresh = created ? app : appById(app.id);                      // re-read after pull
   if ((fresh.releases || []).some(r => r.version === build.version)) stop(`${build.version} was published meanwhile.`);
 
   // 1. release + uploads (re-running after a failure resumes here safely)
@@ -252,13 +361,21 @@ async function publish() {
     say(c.ok('ok'));
   }
   // 3. announce: one commit updates page, buttons and feeds together
-  release.files = build.files.map(f => ({ kind: f.kind, name: f.upload, url: f.url, size: f.size, sha256: f.sha256 }));
-  const raw = readJson(fresh._file);
+  // selfDownloads: the check download above, so it isn't counted as someone downloading the app
+  release.files = build.files.map(f => ({ kind: f.kind, name: f.upload, url: f.url, size: f.size, sha256: f.sha256, selfDownloads: 1 }));
+  const raw = created ? created.raw : readJson(fresh._file);
+  if (listingChanges.length) applyListing(raw, listing);
   raw.releases = [...(raw.releases || []), release].sort((a, b) => cmpVersion(b.version, a.version));
   writeJson(fresh._file, raw);
-  try { _data = null; loadData(); } catch (e) { git('checkout', '--', fresh._file); stop(e.message); }
-  git('add', fresh._file);
-  git('commit', '--quiet', '-m', `${backfill ? 'Add' : 'Publish'} ${app.name} ${build.version}`);
+  const touched = [fresh._file, path.join('content', 'apps', app.id)];
+  if (created) { CONFIG.apps[app.id] = path.relative(CONFIG.finishedApps, folder); writeJson(path.join(ROOT, 'tools', 'zgs.config.json'), CONFIG); touched.push(path.join('tools', 'zgs.config.json')); }
+  try { _data = null; loadData(); } catch (e) {
+    if (created) { fs.rmSync(fresh._file, { force: true }); fs.rmSync(appDir(app.id), { recursive: true, force: true }); git('checkout', '--', 'tools/zgs.config.json'); }
+    else git('checkout', '--', fresh._file, path.join('content', 'apps', app.id));
+    stop(e.message);
+  }
+  git('add', '-A', '--', ...touched);
+  git('commit', '--quiet', '-m', `${created ? 'Add and publish' : backfill ? 'Add' : 'Publish'} ${app.name} ${build.version}`);
   pushWithRetry();
   say(c.ok(`\nPushed. The site rebuilds in about a minute.`));
   if (!backfill) await waitLive(app, { ...build, notes });
@@ -331,21 +448,22 @@ async function status() {
       try { const res = await fetch(`${site.baseUrl}/api/${app.id}/${p}.json?t=${Date.now()}`); if (res.ok) live = (await res.json()).name; } catch { live = '?'; }
       say(`  ${p.padEnd(8)} data ${want.padEnd(8)} live ${live === want ? c.ok(live) : c.bad(live)}`);
     }
+    say(c.dim('  downloads by other people (zgs checks and ones you marked with "mine" are left out)'));
     for (const r of (app.releases || []).slice(0, 5)) {
-      const n = r.files.reduce((t, f) => t + (counts[f.url] || 0), 0);
+      const n = r.files.reduce((t, f) => t + Math.max(0, (counts[f.url] || 0) - (f.selfDownloads || 0)), 0);
       say(`  ${r.version.padEnd(10)} ${r.date}  ${r.status === 'pulled' ? c.bad('pulled') : 'live  '}  ${n} downloads`);
     }
   }
 }
 
 async function verify() {
-  let bad = 0;
+  let bad = 0; const fetched = [];
   for (const app of DATA().apps) for (const r of app.releases || []) {
     if (r.status !== 'live') continue;
     for (const f of r.files) {
       process.stdout.write(`${app.id} ${r.version} ${f.name}… `);
       if (flags.deep) {
-        const got = await downloadSha(f.url);
+        const got = await downloadSha(f.url); fetched.push(f.url);
         if (got.sha256 === f.sha256) say(c.ok('hash ok')); else { bad++; say(c.bad('HASH MISMATCH')); }
       } else {
         const res = await fetch(f.url, { method: 'HEAD', redirect: 'follow' });
@@ -355,14 +473,43 @@ async function verify() {
     }
   }
   say(bad ? c.bad(`\n${bad} problem(s).`) : c.ok('\nAll live files are reachable' + (flags.deep ? ' and match their hashes.' : '.')));
+  if (fetched.length) await addSelfDownloads(fetched, 'Leave zgs check downloads out of the counts');
   if (bad) process.exitCode = 1;
 }
 
+/** Adds 1 to selfDownloads for each URL (one commit), so these downloads aren't counted as people. */
+async function addSelfDownloads(urls, message) {
+  git('pull', '--ff-only', '--quiet'); _data = null;
+  const changed = new Set();
+  for (const app of DATA().apps) {
+    const raw = readJson(app._file); let hit = false;
+    for (const r of raw.releases || []) for (const f of r.files) for (const u of urls) if (f.url === u) { f.selfDownloads = (f.selfDownloads || 0) + 1; hit = true; }
+    if (hit) { writeJson(app._file, raw); changed.add(app._file); }
+  }
+  if (!changed.size) return;
+  git('add', ...changed); git('commit', '--quiet', '-m', message); pushWithRetry();
+  say(c.dim(`Recorded ${urls.length} of your own download(s) so the public count leaves them out.`));
+}
+
+/** zgs mine <app> [platform]: "that download was me", for the newest version's main file. */
+async function mine() {
+  const app = appById(pos[0] || stop('Usage: zgs mine <app> [android|windows]'));
+  const plats = pos[1] ? [pos[1]] : Object.keys(app.platforms);
+  const urls = [];
+  for (const p of plats) {
+    const r = latestFor(app, p) || stop(`${app.name} has no ${p} version.`);
+    const f = r.files.find(x => KINDS[x.kind] === p && x.kind !== 'portable') || r.files.find(x => KINDS[x.kind] === p);
+    if (plats.length > 1 && !(await confirm(`Did you download ${f.name} yourself?`))) continue;
+    urls.push(f.url);
+  }
+  if (urls.length) await addSelfDownloads(urls, `Leave ${app.name} downloads by the developer out of the count`);
+}
+
 /** Stops a publish when the app's policy isn't ready (Studio Standards workflow). */
-function policyGuard(app) {
+function policyGuard(app, listing = null) {
   if (app.visibility === 'private') stop(`${app.name} is private. Its files would still be public on GitHub. Set "visibility" to "unlisted" or "public" first.`);
-  if (!fs.existsSync(path.join(ROOT, 'content', 'apps', app.id, 'privacy.html')))
-    stop(`${app.name} has no privacy policy section yet. Ask the hub chat: "add ${app.name} to the hub".`);
+  if (!fs.existsSync(path.join(ROOT, 'content', 'apps', app.id, 'privacy.html')) && !listing?.files['privacy.html'])
+    stop(`${app.name} has no privacy policy section yet. Put privacy.html in its "${LISTING}" folder (see Studio Standards), or ask the hub chat: "add ${app.name} to the hub".`);
   const sheet = CONFIG.standardsDir && path.join(CONFIG.standardsDir, `${app.name}.md`);
   if (!sheet || !fs.existsSync(sheet)) { say(c.dim(`(No Studio Standards sheet found for ${app.name}; skipping the pending-changes check.)`)); return; }
   const pending = pendingPolicyChanges(fs.readFileSync(sheet, 'utf8'));
@@ -384,19 +531,24 @@ async function menu() {
     } catch (e) { if (!(e instanceof Stop)) throw e; state = c.bad(e.message.split('\n')[0]); }
     rows.push({ app, live, state, ready });
   }
+  const fresh = newListings();
   say(c.b('\nZenith Gen Orbit: publish\n'));
   rows.forEach((r, i) => say(`  ${String(i + 1).padStart(2)}. ${r.app.name.padEnd(18)} live ${r.live.padEnd(9)} ${r.state}`));
-  say(c.dim('\n  s = status and download counts, v = check all links, q = quit'));
+  fresh.forEach((n, i) => say(`  ${String(rows.length + i + 1).padStart(2)}. ${n.id.padEnd(18)} ${c.ok('new app, not on Zenith yet')}  ${c.dim(path.relative(CONFIG.finishedApps, n.folder))}`));
+  say(c.dim('\n  s = status and download counts, m = a download was me, v = check all links, q = quit'));
   const pick = (await ask('\nChoose: ')).toLowerCase();
   if (pick === 's') return status();
   if (pick === 'v') return verify();
-  const row = rows[Number(pick) - 1];
+  if (pick === 'm') { pos[0] = await ask('Which app id (e.g. bambowl)? '); return mine(); }
+  const n = Number(pick) - 1;
+  if (fresh[n - rows.length]) return publish(fresh[n - rows.length]);
+  const row = rows[n];
   if (!row) return say('Nothing chosen.');
   pos[0] = row.app.id;
   return publish();
 }
 
-const COMMANDS = { publish, pull, status, verify };
+const COMMANDS = { publish: () => publish(), pull, status, verify, mine };
 try {
   if (!cmd) await menu();
   else if (!COMMANDS[cmd]) { say(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 10).map(l => l.replace(/^\/\/ ?/, '')).join('\n')); process.exitCode = 1; }

@@ -49,7 +49,15 @@ function copyDir(src, dst) {
   }
 }
 
-const appCount = app => (app.releases || []).reduce((t, r) => t + r.files.reduce((u, f) => u + (counts[f.url] || 0), 0), 0);
+// GitHub counts every download, including the check download zgs makes after each upload and any
+// you mark as your own (zgs mine). Those are subtracted ("selfDownloads" on each file).
+const fileCount = f => Math.max(0, (counts[f.url] || 0) - (f.selfDownloads || 0));
+const appCount = app => (app.releases || []).reduce((t, r) => t + r.files.reduce((u, f) => u + fileCount(f), 0), 0);
+// Shown like Google Play: "5+", "100+", "1K+". Exact numbers are only in zgs status.
+const STEPS = [1, 5, 10, 50, 100, 500, 1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6];
+const bucket = n => { const s = STEPS.filter(x => x <= n).at(-1); return s >= 1e6 ? s / 1e6 + 'M+' : s >= 1e3 ? s / 1e3 + 'K+' : s + '+'; };
+// The icon may be icon.webp, icon.png or icon.jpg (a new app's listing folder can use any of them).
+const iconOf = id => '/apps/' + id + '/' + (['icon.webp', 'icon.png', 'icon.jpg'].find(f => exists(path.join(CONTENT, 'apps', id, f))) || 'icon.webp');
 
 const LOGO = `<img class="zg-logo" src="/assets/zg-logo.webp" alt="" width="38" height="38">`;
 
@@ -106,7 +114,7 @@ const vid = v => 'v' + v;                                              // anchor
 // Link previews (WhatsApp etc.) need PNG/JPG: content/apps/<id>/share.png (1200×630) if present, else the site card.
 const shareImage = app => exists(path.join(CONTENT, 'apps', app.id, 'share.png')) ? `${site.baseUrl}/apps/${app.id}/share.png` : '';
 const releaseRow = ({ app, r }) => `<li><a class="upd" href="/apps/${app.id}/#${vid(r.version)}">
-  <img class="icon" src="/apps/${app.id}/icon.webp" alt="" width="44" height="44">
+  <img class="icon" src="${iconOf(app.id)}" alt="" width="44" height="44">
   <span><b>${esc(app.name)} ${esc(r.version)}</b><span class="muted small"> · ${date(r.date)}</span><br><span class="small">${esc(r.notes)}</span></span></a></li>`;
 
 const chips = app => Object.keys(app.platforms).map(p => `<span class="chip">${PLATFORMS[p]}</span>`).join('');
@@ -119,7 +127,7 @@ function home() {
   const cards = listed.map(a => {
     const latest = (a.releases || []).find(r => r.status === 'live');
     return `<a class="card app-card${latest ? '' : ' soon'}" href="/apps/${a.id}/" data-platforms="${Object.keys(a.platforms).join(' ')}">
-  <img class="icon" src="/apps/${a.id}/icon.webp" alt="" width="64" height="64">
+  <img class="icon" src="${iconOf(a.id)}" alt="" width="64" height="64">
   <div><h3>${esc(a.name)}</h3><p class="muted small">${esc(a.category || '')}</p></div>
   <p class="tag">${esc(a.tagline)}</p>
   <div class="chips">${chips(a)}${latest ? `<span class="chip ghost">v${esc(latest.version)}</span>` : '<span class="chip soon-chip">Coming soon</span>'}</div>
@@ -223,11 +231,17 @@ function appPage(app) {
     latestAny && ['Updated', date(latestAny.date)],
     ...plats.map(p => primaryFile(p) && [plats.length > 1 ? `${PLATFORMS[p]} size` : 'Size', mb(primaryFile(p).size)]),
     ...plats.map(p => app.platforms[p].requires && [plats.length > 1 ? `${PLATFORMS[p]}` : 'Requires', app.platforms[p].requires.replace(' or newer', '+')]),
-    total && ['Downloads', num(total)]
+    total && ['Downloads', bucket(total)]
   ].filter(Boolean);
 
-  const shots = (app.screenshots || []).length ? `<section><h2 class="sec">Screenshots</h2><div class="shots" data-gallery>${app.screenshots.map((s, i) =>
-    `<button type="button" class="shot" aria-label="Enlarge screenshot ${i + 1}"><img src="/apps/${app.id}/shots/${esc(s)}" alt="${esc(app.name)} screenshot ${i + 1}" loading="lazy" width="220"></button>`).join('')}</div></section>` : '';
+  // Screenshots, Google Play style: a sideways strip. "shotStyle" picks the look:
+  //   clean (default): the in-app image with rounded corners
+  //   phone: the image inside a plain phone outline (for launchers and other full-screen apps)
+  // An entry is a file name, or { "file": "...", "wide": true } for a Windows (landscape) shot.
+  const shotList = (app.screenshots || []).map(s => typeof s === 'string' ? { file: s } : s);
+  const style = app.shotStyle || 'clean';
+  const shots = shotList.length ? `<section><h2 class="sec">Screenshots</h2><div class="shots style-${style}" data-gallery>${shotList.map((s, i) =>
+    `<button type="button" class="shot${s.wide ? ' wide' : ''}" aria-label="Enlarge screenshot ${i + 1}"><img src="/apps/${app.id}/shots/${esc(s.file)}" alt="${esc(s.caption || `${app.name} screenshot ${i + 1}`)}" loading="lazy"></button>`).join('')}</div></section>` : '';
 
   const about = `<section><h2 class="sec">About</h2>${(app.description || []).map(p => `<p>${esc(p)}</p>`).join('')}
 ${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}</section>`;
@@ -245,7 +259,7 @@ ${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>$
 ${rel.length > SHOW ? `<details class="older"><summary>Show ${rel.length - SHOW} older version${rel.length - SHOW > 1 ? 's' : ''}</summary><ol class="versions">${rel.slice(SHOW).map(verItem).join('')}</ol></details>` : ''}</section>` : '';
 
   const bar = plats.map(p => { const f = primaryFile(p); return f ? `<div class="getbar" data-platform="${p}" hidden>
-  <img class="icon" src="/apps/${app.id}/icon.webp" alt="" width="36" height="36"><span><b>${esc(app.name)}</b><small>${esc(latestFor(app, p).version)} · ${mb(f.size)}</small></span>
+  <img class="icon" src="${iconOf(app.id)}" alt="" width="36" height="36"><span><b>${esc(app.name)}</b><small>${esc(latestFor(app, p).version)} · ${mb(f.size)}</small></span>
   <a class="btn btn-iri" href="${esc(f.url)}">${p === 'android' ? 'Download' : 'Get for Windows'}</a></div>` : ''; }).join('');
 
   return page({
@@ -255,7 +269,7 @@ ${rel.length > SHOW ? `<details class="older"><summary>Show ${rel.length - SHOW}
     canonical: appUrl(site, app),
     image: shareImage(app),
     body: `<section class="app-head">
-  <img class="icon big" src="/apps/${app.id}/icon.webp" alt="" width="96" height="96">
+  <img class="icon big" src="${iconOf(app.id)}" alt="" width="96" height="96">
   <div class="app-title"><h1>${esc(app.name)}</h1><p class="by"><img src="/assets/pandalume-mark.webp" alt="" width="18" height="18">by <b>${esc(app.developer || site.developer)}</b> <span class="muted">· Published on ${esc(site.name)}</span></p><p class="tag">${esc(app.tagline)}</p>
   <div class="chips">${chips(app)}${app.category ? `<span class="chip ghost">${esc(app.category)}</span>` : ''}</div></div>
   <button type="button" class="share-btn" data-share-url="${appUrl(site, app)}" data-share-title="${esc(app.name)}" data-share-text="${esc(app.tagline)}">Share</button>
@@ -374,7 +388,7 @@ write('index.html', home());
 write('install/index.html', install());
 write('privacy.html', docPage('privacy'));
 write('terms.html', docPage('terms'));
-write('404.html', page({ title: `Not found · ${site.name}`, description: 'Page not found', noindex: true, body: `<section class="hero"><h1>Page not found</h1><p>That page doesn't exist, or it moved.</p></section><ul class="updates">${listed.map(a => `<li><a class="upd" href="/apps/${a.id}/"><img class="icon" src="/apps/${a.id}/icon.webp" alt="" width="44" height="44"><span><b>${esc(a.name)}</b><br><span class="small">${esc(a.tagline)}</span></span></a></li>`).join('')}</ul><p><a href="/">All apps</a></p>` }));
+write('404.html', page({ title: `Not found · ${site.name}`, description: 'Page not found', noindex: true, body: `<section class="hero"><h1>Page not found</h1><p>That page doesn't exist, or it moved.</p></section><ul class="updates">${listed.map(a => `<li><a class="upd" href="/apps/${a.id}/"><img class="icon" src="${iconOf(a.id)}" alt="" width="44" height="44"><span><b>${esc(a.name)}</b><br><span class="small">${esc(a.tagline)}</span></span></a></li>`).join('')}</ul><p><a href="/">All apps</a></p>` }));
 write('updates/index.html', updatesPage());
 write('feed.xml', atomFeed());
 
@@ -393,7 +407,7 @@ for (const app of apps) {
     version: r.version, ...(r.code != null && { code: r.code }), date: r.date, status: r.status, notes: r.notes, ...(r.changes && { changes: r.changes }),
     ...(r.status === 'pulled' ? { pulledReason: r.pulledReason } : currentRel.has(r) ? { files: r.files.map(({ kind, name, url, size, sha256 }) => ({ kind, name, url, size, sha256 })) } : {})
   })));
-  if (app.visibility === 'public') catalog.push({ id: app.id, name: app.name, tagline: app.tagline, page: appUrl(site, app), icon: `${site.baseUrl}/apps/${app.id}/icon.webp`, feeds });
+  if (app.visibility === 'public') catalog.push({ id: app.id, name: app.name, tagline: app.tagline, page: appUrl(site, app), icon: site.baseUrl + iconOf(app.id), feeds });
 }
 json('api/catalog.json', catalog);
 

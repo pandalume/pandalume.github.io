@@ -86,8 +86,14 @@ nav a:hover { color: var(--text); background: var(--bg2); text-decoration: none;
 code { font: 12px/1.5 ui-monospace, Consolas, monospace; color: #c7d2fe; overflow-wrap: anywhere; }
 pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
 .copy { font: inherit; font-size: 12px; color: var(--text); background: var(--bg2); border: 1px solid var(--line2); border-radius: 8px; padding: 3px 10px; cursor: pointer; }
-.shots { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory; }
-.shots img { width: 220px; height: auto; flex: none; border-radius: 14px; border: 1px solid var(--line2); scroll-snap-align: start; }
+/* screenshots: sideways strip like Google Play */
+.shots { display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px 12px; scroll-snap-type: x mandatory; scrollbar-width: thin; }
+.shots img { display: block; height: 400px; width: auto; max-width: none; border-radius: 16px; border: 1px solid var(--line2); background: var(--bg2); }
+.shots .shot.wide img { height: 300px; border-radius: 10px; }
+.style-phone .shot:not(.wide) { padding: 10px 6px; border-radius: 30px; background: #0b0f17; border: 2px solid #2b3446; box-shadow: 0 6px 20px rgba(0,0,0,.35); position: relative; }
+.style-phone .shot:not(.wide)::before { content: ""; position: absolute; top: 3px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: #2b3446; }
+.style-phone .shot:not(.wide) img { height: 380px; border: 0; border-radius: 20px; }
+@media (max-width: 560px) { .shots img { height: 340px; } .style-phone .shot:not(.wide) img { height: 320px; } .shots .shot.wide img { height: 200px; } }
 .feat { padding-left: 20px; } .feat li { margin: 4px 0; }
 .versions { list-style: none; padding: 0; margin: 0; }
 .versions > li { border-left: 2px solid var(--line2); padding: 2px 0 18px 18px; position: relative; }
@@ -141,7 +147,6 @@ pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px
 .linkish { font: inherit; color: var(--cyan); background: none; border: 0; padding: 0; cursor: pointer; }
 .linkish:hover { text-decoration: underline; }
 .shot { padding: 0; border: 0; background: none; cursor: zoom-in; flex: none; scroll-snap-align: start; }
-.shots .shot img { width: 220px; }
 .older { margin-top: 4px; }
 .older > summary { cursor: pointer; color: var(--cyan); font-size: 14px; margin-bottom: 14px; }
 .versions > li { scroll-margin-top: 80px; }
