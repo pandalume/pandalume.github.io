@@ -5,6 +5,7 @@
 // Plain Node 20+, no packages. If data/ is invalid it stops before writing anything, so a
 // broken edit can never reach the live site.
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { currentEvents, ROOT, PLATFORMS, KINDS, loadData, latestFor, androidFeed, windowsFeed, appUrl, timeline } from './lib.mjs';
@@ -31,6 +32,10 @@ const KIND_HINT = { apk: 'Android app', setup: 'Installs with a Start menu short
 const fill = html => html.replaceAll('{{contact}}', esc(site.contact));
 const read = p => fs.readFileSync(p, 'utf8');
 const exists = p => fs.existsSync(p);
+// Asset addresses carry a fingerprint of the file (?v=…), so browsers and the installed app always fetch a
+// changed file instead of an old cached copy.
+const assetV = {};
+const A = rel => { const f = path.join(ROOT, rel.replace(/^\//, '')); if (!assetV[rel]) assetV[rel] = exists(f) ? crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex').slice(0, 10) : '1'; return `${rel}?v=${assetV[rel]}`; };
 
 function write(rel, text) {
   const file = path.join(OUT, rel);
@@ -80,8 +85,8 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">\n` : ''}<met
 <meta name="theme-color" content="#070a0f">${site.googleSiteVerification ? `\n<meta name="google-site-verification" content="${esc(site.googleSiteVerification)}">` : ''}
 <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-<link rel="stylesheet" href="/assets/site.css">
-<script src="/assets/site.js" defer></script>${scripts}
+<link rel="stylesheet" href="${A('/assets/site.css')}">
+<script src="${A('/assets/site.js')}" defer></script>${scripts}
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -265,7 +270,7 @@ function familyPage() {
     title: `Family & friends · ${site.name}`, description: `Apps ${site.developer} shares with family and friends.`, noindex: true,
     canonical: site.baseUrl + '/family/',
     csp: `default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self' ${f.supabaseUrl}; base-uri 'none'; form-action 'none'`,
-    scripts: `\n<script src="/assets/family.js" defer></script>`,
+    scripts: `\n<script src="${A('/assets/family.js')}" defer></script>`,
     body: `<section class="hero"><h1>Family &amp; friends</h1>
 <p>Apps ${esc(site.developer)} shares with people it knows. Sign in with the Google account you were invited with.</p></section>
 <div id="family" data-supabase="${esc(f.supabaseUrl)}" data-key="${esc(f.publishableKey)}" data-contact="${esc(site.contact)}">
@@ -300,7 +305,7 @@ function ownerPage() {
   return page({
     title: `Owner · ${site.name}`, description: 'For the owner of Zenith Gen Orbit.', noindex: true,
     csp: `default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self' ${f.supabaseUrl} https://api.github.com; manifest-src 'self'; base-uri 'none'; form-action 'none'`,
-    scripts: `\n<link rel="manifest" href="/owner/manifest.webmanifest">\n<script src="/assets/qrcode.js" defer></script>\n<script src="/assets/owner.js" defer></script>`,
+    scripts: `\n<link rel="manifest" href="/owner/manifest.webmanifest">\n<script src="/assets/qrcode.js?v=1" defer></script>\n<script src="${A('/assets/owner.js')}" defer></script>`,
     body: `<div id="owner" data-supabase="${esc(f.supabaseUrl)}" data-key="${esc(f.publishableKey)}" data-repo="${esc(site.repo)}"><p class="muted">Loading…</p></div>
 <script type="application/json" id="owner-data">${JSON.stringify({ tiles, rows }).replace(/</g, '\\u003c')}</script>`
   });
@@ -527,7 +532,7 @@ function install() {
 function getPage(app, url, label) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex">
 <meta http-equiv="refresh" content="0; url=${esc(url)}"><title>Downloading ${esc(app.name)}</title>
-<link rel="stylesheet" href="/assets/site.css"></head><body><main class="wrap"><p>Downloading ${esc(app.name)} ${esc(label)}… If nothing happens, <a href="${esc(url)}">tap here</a>, or go to the <a href="/apps/${app.id}/">${esc(app.name)} page</a>.</p></main></body></html>\n`;
+<link rel="stylesheet" href="${A('/assets/site.css')}"></head><body><main class="wrap"><p>Downloading ${esc(app.name)} ${esc(label)}… If nothing happens, <a href="${esc(url)}">tap here</a>, or go to the <a href="/apps/${app.id}/">${esc(app.name)} page</a>.</p></main></body></html>\n`;
 }
 
 // ---------- download counts (totals per file, from GitHub; nothing about people) ----------
