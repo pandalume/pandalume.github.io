@@ -6,6 +6,7 @@
 // list (table family_members, or an owner email), then serves the family apps' details, images and
 // short-lived download links from the private GitHub repository FAMILY_REPO. Nothing is logged.
 //
+// GET  ?action=link&url=<public release file>   no sign-in: its final download address (see below)
 // GET  ?action=catalog                          apps this person may see (no download URLs)
 // GET  ?action=file&app=<id>&path=icon          the icon, or shots/<file> for a screenshot (bytes)
 // GET  ?action=download&app=<id>&name=<file>    { url } : a GitHub link valid for a few minutes
@@ -83,6 +84,16 @@ Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
     const q = new URL(req.url).searchParams, action = q.get('action') ?? 'catalog';
+    // Public: the final download address of a PUBLIC Zenith release file. Inside the installed Zenith app,
+    // opening github.com's redirect shows a small browser sheet where Chrome never asks "Download anyway",
+    // so the download hangs; going straight to the final address downloads in place and Chrome asks properly.
+    if (action === 'link') {
+      const u = q.get('url') ?? '';
+      if (!/^https:\/\/github\.com\/pandalume\/pandalume\.github\.io\/releases\/download\/[\w.-]+\/[\w.-]+$/.test(u)) return json({ error: 'Not a Zenith release file.' }, 400);
+      const r = await fetch(u, { redirect: 'manual', headers: { 'User-Agent': 'zenith-family' } });
+      const loc = r.headers.get('location');
+      return loc ? json({ url: loc }) : json({ error: `GitHub ${r.status}` }, 502);
+    }
     const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
     const { data: { user } } = await db.auth.getUser(jwt);
     if (!user?.email) return json({ error: 'Sign in first.' }, 401);

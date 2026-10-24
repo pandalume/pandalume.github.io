@@ -7,19 +7,26 @@ function toast(msg) {
   document.body.append(t); setTimeout(() => t.remove(), 1800);
 }
 
-// Inside the installed Zenith app on Android, links to other sites open in a small built-in browser sheet, and
-// Chrome never shows its "File might be harmful… Download anyway" question there, so an APK download sits at
-// 100% forever. Hand APK downloads to the full Chrome app instead, where the question always appears.
+// Inside the installed Zenith app on Android, opening github.com's download link shows a small browser sheet in
+// which Chrome never asks "File might be harmful… Download anyway?", so the APK sits at 100% forever. Going
+// straight to the file's final address downloads in place, and Chrome asks properly. The Family server looks
+// that address up (GitHub doesn't let pages read it); if that fails, the normal link is used.
 const INSTALLED = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: minimal-ui)').matches;
-function inChrome(url) {
-  const u = new URL(url, location.href);
-  return `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(u.href)};end`;
-}
-window.zgOpenDownload = url => { location.href = (MINE === 'android' && INSTALLED) ? inChrome(url) : url; };
+const FAMILY_FN = 'https://oeffkydfujcasphguxjr.supabase.co/functions/v1/family';
+window.zgOpenDownload = async url => {
+  if (MINE === 'android' && INSTALLED && /^https:\/\/github\.com\/[^/]+\/[^/]+\/releases\/download\//.test(url)) {
+    try {
+      const r = await fetch(`${FAMILY_FN}?action=link&url=${encodeURIComponent(url)}`);
+      const j = await r.json();
+      if (j.url) { location.href = j.url; return; }
+    } catch { /* fall back to the normal link */ }
+  }
+  location.href = url;
+};
 
 document.addEventListener('click', async e => {
-  const apk = e.target.closest('a[data-kind="apk"], a[href$=".apk"], a[href*="/get/"][href*="/android/"]');
-  if (apk && MINE === 'android' && INSTALLED) { e.preventDefault(); window.zgOpenDownload(apk.href); return; }
+  const apk = e.target.closest('a[data-kind="apk"], a[href$=".apk"]');
+  if (apk && MINE === 'android' && INSTALLED) { e.preventDefault(); toast('Starting download…'); window.zgOpenDownload(apk.href); return; }
   const copy = e.target.closest('.copy');
   if (copy) {
     try { await navigator.clipboard.writeText(copy.dataset.copy); toast(copy.dataset.done || 'Copied'); } catch { toast('Copy failed'); }
