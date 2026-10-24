@@ -1,13 +1,15 @@
 <h2>Cypher Vault</h2>
 <ul>
 <li><b>Your vault</b> is encrypted on your device with your master password. If you sign in, only the encrypted vault is backed up, so the stored copy cannot be read by us or anyone else without your master password. We cannot recover your vault if you lose both your master password and your recovery key.</li>
-<li><b>Website icons:</b> to show a site's icon next to an entry, Cypher Vault asks Google's icon service for that website's icon, which tells Google the website's address (not your username or password).</li>
-<li><b>Breached-password check:</b> to check whether a password has appeared in a known data breach, Cypher Vault sends only the first 5 characters of a one-way fingerprint (SHA-1 hash) of the password to the Have I Been Pwned service. The password itself never leaves your device.</li>
+<li><b>Sign-in:</b> backup, sync and updates use Google sign-in. We receive your email address and an account ID. Signing in is optional; without it the vault stays only on your device.</li>
+<li><b>Updates:</b> while you are signed in, Cypher Vault checks once a day (and when you tap Check for updates) whether a newer version is available to your account. The check sends your sign-in, the app's name and your platform (Android or Windows), never your vault.</li>
+<li><b>Website icons:</b> off unless you turn on Site icons. Then, to show a site's icon next to an entry, Cypher Vault asks Google's icon service for that website's icon, which tells Google the website's address (not your username or password).</li>
+<li><b>Breached-password check:</b> only when you run it. Cypher Vault sends only the first 5 characters of a one-way fingerprint (SHA-1 hash) of the password to the Have I Been Pwned service. The password itself never leaves your device.</li>
 <li><b>Browser extension:</b> talks only to the Cypher Vault app on the same computer. It does not send your data anywhere else.</li>
 </ul>
 <h3>Services Cypher Vault uses</h3>
 <ul>
-<li><b>Google:</b> sign-in, and website icons.</li>
-<li><b>Supabase</b> (servers in Singapore): accounts and the encrypted vault backup.</li>
+<li><b>Google:</b> sign-in, and website icons (if turned on).</li>
+<li><b>Supabase</b> (servers in Singapore): accounts, the encrypted vault backup, and the update check.</li>
 <li><b>Have I Been Pwned (Pwned Passwords):</b> breached-password checks, as described above.</li>
 </ul>
