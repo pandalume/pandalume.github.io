@@ -81,14 +81,14 @@
   function row(r) {
     return `<li class="card">
 ${r.icon ? `<img class="icon" src="${esc(r.icon)}" alt="" width="48" height="48">` : `<span class="icon owner-noicon" data-icon="${esc(r.id)}" aria-hidden="true">🔒</span>`}
-<div class="owner-app"><a href="${esc(r.url)}"><b>${esc(r.name)}</b></a><span class="small muted">${r.version ? 'v' + esc(r.version) : 'No version yet'}${r.category ? ' · ' + esc(r.category) : ''}</span><span class="small muted" data-count="${r.id}"></span></div>
+<div class="owner-app"><a class="owner-link" href="${esc(r.url)}"><b>${esc(r.name)}</b></a><span class="small muted">${r.version ? 'v' + esc(r.version) : 'No version yet'}${r.category ? ' · ' + esc(r.category) : ''}</span><span class="small muted" data-count="${r.id}"></span></div>
 <div class="owner-acts">${r.group === 'Just me' ? '' : `<button type="button" class="linkish" data-act="qr" data-id="${r.id}">QR</button><button type="button" class="linkish" data-act="share" data-id="${r.id}">Share</button>`}</div></li>`;
   }
   function view(email) {
     root.innerHTML = `<section class="owner-head"><h1>Zenith Owner</h1><p class="small muted">${esc(email)} · <button type="button" class="linkish" data-act="out">Sign out</button></p></section>
-<ul class="owner-apps owner-sites">${data.tiles.map(t => `<li class="card">
-<div class="owner-app"><a href="${esc(t.url)}"><b>${esc(t.name)}</b></a><span class="small muted">${esc(t.url.replace('https://', ''))}${t.id === 'family' ? ' · <a href="/family/">Invites</a>' : ''}</span></div>
-<div class="owner-acts"><button type="button" class="linkish" data-act="qr" data-id="${t.id}">QR</button><button type="button" class="linkish" data-act="share" data-id="${t.id}">Share</button></div></li>`).join('')}</ul>
+<div class="owner-sites">${data.tiles.map(t => `<div class="card owner-site">
+<a class="owner-link" href="${esc(t.url)}"><b>${esc(t.name)}</b><span class="small muted">${t.id === 'family' ? 'Invite only' : 'Public site'}</span></a>
+<div class="owner-acts"><button type="button" class="linkish" data-act="qr" data-id="${t.id}">QR</button><button type="button" class="linkish" data-act="share" data-id="${t.id}">Share</button>${t.id === 'family' ? '<a class="linkish" href="/family/">Invites</a>' : ''}</div></div>`).join('')}</div>
 ${GROUPS.map(([g, hint]) => { const rs = data.rows.filter(r => r.group === g); return `<section class="owner-group"><h2 class="sec">${esc(g)} <span class="muted small">${rs.length}</span></h2><p class="small muted">${esc(hint)}</p>
 ${rs.length ? `<ul class="owner-apps">${rs.map(row).join('')}</ul>` : '<p class="small muted">None yet.</p>'}</section>`; }).join('')}
 <p class="small muted">Install this page on your phone: Chrome menu ⋮ › <b>Add to Home screen</b> (or <b>Install app</b>). It's only useful to you: other people can't sign in to it.</p>`;
