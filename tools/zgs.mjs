@@ -47,8 +47,11 @@ function run(file, args, opts = {}) {
   if (r.error) stop(`${file} could not run: ${r.error.message}`);
   return r;
 }
+// Git Credential Manager can wait for a sign-in window that never appears; never let it, and fall back to the
+// saved login straight away (the reason a push could hang for minutes).
+const GIT_ENV = { ...process.env, GCM_INTERACTIVE: 'never', GIT_TERMINAL_PROMPT: '0' };
 function git(...args) {
-  const r = run('git', args);
+  const r = run('git', args, { env: GIT_ENV });
   if (r.status !== 0) stop(`git ${args.join(' ')} failed:\n${(r.stderr || r.stdout).trim()}`);
   return r.stdout.trim();
 }
@@ -518,7 +521,7 @@ async function publish(newApp = null) {
 }
 
 function pushWithRetry() {
-  const r = run('git', ['push', '--quiet']);
+  const r = run('git', ['push', '--quiet'], { env: GIT_ENV });
   if (r.status === 0) return;
   git('pull', '--rebase', '--quiet');
   git('push', '--quiet');
