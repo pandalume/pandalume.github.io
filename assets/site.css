@@ -286,3 +286,7 @@ pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px
   .dls .dl[data-platform="windows"] .btns { flex-direction: row; }
   .dls .dl[data-platform="windows"] .btn { flex: 1; }
 }
+/* <button> download buttons (Family page) look exactly like the <a> ones: no browser border */
+button.btn { font: inherit; cursor: pointer; text-align: left; -webkit-appearance: none; appearance: none; }
+button.btn:not(.btn-ghost) { border: 0; }
+button.btn-iri { color: #070a0f; }
