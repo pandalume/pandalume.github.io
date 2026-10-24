@@ -73,30 +73,61 @@
   }
 
   const latestFor = (app, p) => (app.releases || []).find(r => r.status === 'live' && r.files.length && r.files.some(f => KINDS[f.kind] === p));
-  function appCard(app) {
+  const PLAT = { android: 'Android', windows: 'Windows' };
+  const HINT = { apk: 'Android app', setup: 'Installs with a Start menu shortcut', portable: 'Runs without installing' };
+  const chips = app => Object.keys(app.platforms || {}).map(p => `<span class="chip">${PLAT[p]}</span>`).join('');
+  let apps = [], me = null;
+
+  // The list, laid out like the main site's home page.
+  function listView() {
+    return `<section id="apps"><div class="sec-row"><h2 class="sec">Apps shared with you</h2></div>
+<div class="grid">${apps.map(a => {
+      const latest = (a.releases || []).find(r => r.status === 'live');
+      return `<a class="card app-card" href="#${esc(a.id)}">
+  <img class="icon" alt="" width="64" height="64" data-img="${esc(a.id)}|icon">
+  <div><h3>${esc(a.name)}</h3><p class="muted small">${esc(a.category || 'Family & friends')}</p></div>
+  <p class="tag">${esc(a.tagline)}</p>
+  <div class="chips">${chips(a)}${latest ? `<span class="chip ghost">v${esc(latest.version)}</span>` : '<span class="chip soon-chip">Coming soon</span>'}</div>
+</a>`;
+    }).join('') || '<p class="muted">No apps have been shared with you yet.</p>'}</div></section>`;
+  }
+
+  // One app, laid out like its page on the main site.
+  function detailView(app) {
     const plats = Object.keys(app.platforms || {});
-    const dl = plats.map(p => {
-      const r = latestFor(app, p);
-      if (!r) return `<p class="muted small">${p === 'android' ? 'Android' : 'Windows'}: no version yet.</p>`;
-      return `<div class="fam-dl"><p class="small muted">${p === 'android' ? 'Android' : 'Windows'} · version ${esc(r.version)} · ${date(r.date)}${app.platforms[p].requires ? ' · ' + esc(app.platforms[p].requires) : ''}</p>
-<div class="btns">${r.files.filter(f => KINDS[f.kind] === p).map((f, i) => `<button type="button" class="btn ${i ? 'btn-ghost' : 'btn-iri'}" data-act="dl" data-app="${esc(app.id)}" data-name="${esc(f.name)}">${LABEL[f.kind]} <span class="small">${mb(f.size)}</span></button>`).join('')}</div></div>`;
+    const latestAny = (app.releases || []).find(r => r.status === 'live');
+    const facts = [latestAny && ['Version', latestAny.version], latestAny && ['Updated', date(latestAny.date)],
+      ...plats.map(p => app.platforms[p].requires && [plats.length > 1 ? PLAT[p] : 'Requires', app.platforms[p].requires.replace(' or newer', '+')])].filter(Boolean);
+    const panels = plats.map(p => {
+      const r = latestFor(app, p), files = r ? r.files.filter(f => KINDS[f.kind] === p) : [];
+      return `<div class="card dl"><div class="dl-head"><h3>${PLAT[p]}</h3><span class="muted small">${esc(app.platforms[p].requires || '')}</span></div>
+${r ? `<p class="ver">Version ${esc(r.version)} · ${date(r.date)}</p>
+<div class="btns">${files.map((f, i) => `<button type="button" class="btn ${i ? 'btn-ghost' : 'btn-iri'}" data-act="dl" data-app="${esc(app.id)}" data-name="${esc(f.name)}"><span>${LABEL[f.kind]}</span><small>${mb(f.size)} · ${HINT[f.kind]}</small></button>`).join('')}</div>
+<p class="notes"><b>What's new:</b> ${esc(r.notes)}</p>
+<p class="small"><a href="/install/#${p}">How to install on ${PLAT[p]}</a></p>` : '<p class="muted">No download yet. Check back soon.</p>'}</div>`;
     }).join('');
-    const now = (app.releases || []).find(r => r.status === 'live');
     const shots = (app.screenshots || []).map(s => typeof s === 'string' ? { file: s } : s);
     const ds = app.dataSafety;
-    return `<article class="card fam-app" id="${esc(app.id)}">
-<div class="fam-head"><img class="icon" alt="" width="64" height="64" data-img="${esc(app.id)}|icon">
-<div><h2>${esc(app.name)}</h2><p class="tag">${esc(app.tagline)}</p></div></div>
-${dl}
-${now ? `<p class="notes"><b>What's new:</b> ${esc(now.notes)}</p>` : ''}
-<details class="fam-more"><summary>More about ${esc(app.name)}</summary>
-${shots.length ? `<div class="shots style-${esc(app.shotStyle || 'clean')}">${shots.map(s => `<span class="shot${s.wide ? ' wide' : ''}"><img alt="" data-img="${esc(app.id)}|shots/${esc(s.file)}"></span>`).join('')}</div>` : ''}
-${(app.description || []).map(p => `<p>${esc(p)}</p>`).join('')}
-${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
-${ds ? `<h3>Data safety</h3><ul class="feat">${(ds.collected || []).map(c => `<li><b>${esc(c.data)}</b>: ${esc(c.why)}${c.optional ? ' (optional)' : ''}</li>`).join('')}${(ds.sent || []).map(x => `<li>Sends <b>${esc(x.data)}</b> to ${esc(x.to)}: ${esc(x.why)}</li>`).join('')}${ds.encryptedInTransit ? '<li>Data is encrypted in transit</li>' : ''}${ds.deletion ? `<li>Deleting your data: ${esc(ds.deletion)}</li>` : ''}${(ds.extras || []).map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-<h3>Version history</h3><ol class="versions">${(app.releases || []).slice(0, 10).map(r => `<li class="${esc(r.status)}"><div class="vrow"><b>${esc(r.version)}</b><span class="muted small">${date(r.date)}</span></div><p>${esc(r.notes)}</p>${(r.changes || []).length ? `<ul>${r.changes.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ol>
-<p class="small"><a href="/apps/${esc(app.id)}/privacy/">Privacy policy</a> · <a href="/apps/${esc(app.id)}/terms/">Terms of use</a> · <a href="/install/">Install help</a></p>
-</details></article>`;
+    const rel = app.releases || [];
+    const ver = r => `<li class="${esc(r.status)}"><div class="vrow"><b>${esc(r.version)}</b><span class="muted small">${date(r.date)}</span></div><p>${esc(r.notes)}</p>${(r.changes || []).length ? `<ul>${r.changes.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}</li>`;
+    return `<p class="small"><a href="#">← All shared apps</a></p>
+<section class="app-head"><img class="icon big" alt="" width="96" height="96" data-img="${esc(app.id)}|icon">
+<div class="app-title"><h1>${esc(app.name)}</h1><p class="by"><img src="/assets/pandalume-mark.webp" alt="" width="18" height="18">by <b>Pandalume Studio</b> <span class="muted">· Family &amp; friends</span></p><p class="tag">${esc(app.tagline)}</p>
+<div class="chips">${chips(app)}${app.category ? `<span class="chip ghost">${esc(app.category)}</span>` : ''}</div></div></section>
+${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
+<section class="dls">${panels}</section>
+${shots.length ? `<section><h2 class="sec">Screenshots</h2><div class="shots style-${esc(app.shotStyle || 'clean')}">${shots.map(s => `<span class="shot${s.wide ? ' wide' : ''}"><img alt="" data-img="${esc(app.id)}|shots/${esc(s.file)}"></span>`).join('')}</div></section>` : ''}
+<section><h2 class="sec">About</h2>${(app.description || []).map(p => `<p>${esc(p)}</p>`).join('')}
+${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}</section>
+${ds ? `<section><h2 class="sec">Data safety</h2><div class="card ds">
+${(ds.collected || []).length ? `<div class="ds-row"><span aria-hidden="true">•</span><div><b>Collects, only if you sign in</b><span>${esc(ds.collected.map(c => c.data).join(' · '))}</span></div></div>` : '<div class="ds-row"><span aria-hidden="true">•</span><div><b>Collects no data</b></div></div>'}
+${(ds.sent || []).map(x => `<div class="ds-row"><span aria-hidden="true">•</span><div><b>Sends ${esc(x.data)}</b><span>to ${esc(x.to)}: ${esc(x.why)}</span></div></div>`).join('')}
+${ds.encryptedInTransit ? '<div class="ds-row"><span aria-hidden="true">•</span><div><b>Data is encrypted in transit</b></div></div>' : ''}
+${ds.deletion ? `<div class="ds-row"><span aria-hidden="true">•</span><div><b>You can delete your data</b><span>${esc(ds.deletion)}</span></div></div>` : ''}
+${(ds.extras || []).map(x => `<div class="ds-row"><span aria-hidden="true">•</span><div><span>${esc(x)}</span></div></div>`).join('')}</div></section>` : ''}
+${rel.length ? `<section><h2 class="sec">Version history</h2><ol class="versions">${rel.slice(0, 3).map(ver).join('')}</ol>
+${rel.length > 3 ? `<details class="older"><summary>Show ${rel.length - 3} older version${rel.length - 3 > 1 ? 's' : ''}</summary><ol class="versions">${rel.slice(3).map(ver).join('')}</ol></details>` : ''}</section>` : ''}
+<p class="small"><a href="/apps/${esc(app.id)}/privacy/">${esc(app.name)} privacy policy</a> · <a href="/apps/${esc(app.id)}/terms/">Terms of use</a></p>`;
   }
 
   async function fillImages() {
@@ -172,17 +203,26 @@ ${apps.map(a => `<label class="chk"><input type="checkbox" name="apps" value="${
     }
   });
 
+  function render() {
+    const id = decodeURIComponent(location.hash.slice(1));
+    const app = apps.find(a => a.id === id);
+    set(`<p class="small muted fam-who">Signed in as <b>${esc(me.email)}</b> · <button type="button" class="linkish" data-act="out">Sign out</button></p>
+${app ? detailView(app) : listView()}`);
+    window.scrollTo(0, 0);
+    fillImages();
+    if (me.owner && !app) ownerPanel();
+  }
+  window.addEventListener('hashchange', () => { if (me) render(); });
+
   async function start() {
+    me = null;
     if (!session) return signedOut();
     set('<p class="muted">Loading your apps…</p>');
     try {
       const j = await getJson({ action: 'catalog' });
       if (!j.member) return notInvited(j.email);
-      set(`<p class="small muted fam-who">Signed in as <b>${esc(j.email)}</b> · <button type="button" class="linkish" data-act="out">Sign out</button></p>
-${j.apps.length ? j.apps.map(appCard).join('') : '<p class="muted">No apps have been shared with you yet.</p>'}`);
-      if (jump) document.getElementById(jump)?.scrollIntoView();
-      fillImages();
-      if (j.owner) ownerPanel();
+      apps = j.apps; me = j;
+      if (jump && location.hash.slice(1) !== jump) location.hash = jump; else render();
     } catch (err) {
       if (err.signedOut) return signedOut();
       set(`<p class="family-notice">The Family page couldn't load (${esc(err.message)}). Try again in a minute.</p>`);

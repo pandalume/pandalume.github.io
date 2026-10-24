@@ -233,6 +233,32 @@ function familyPage() {
   });
 }
 
+// The owner's own app (/owner/): installed on your phone from Chrome ("Add to Home screen"). It opens
+// either Zenith, shares any app or the Family page by QR code or share sheet, and shows download counts.
+// Not linked from anywhere; shows nothing useful unless you're signed in as an owner.
+function ownerPage() {
+  const f = site.family;
+  const rows = apps.map(a => {
+    const fam = a.visibility === 'family';
+    const url = fam ? `${site.baseUrl}/family/#${a.id}` : appUrl(site, a);
+    const latest = (a.releases || []).find(r => r.status === 'live');
+    const self = {};
+    for (const r of (a.releases || []).filter(r => r.status === 'live')) for (const x of r.files) if (x.selfDownloads) self[x.url] = x.selfDownloads;
+    return { id: a.id, name: a.name, group: fam ? 'Family & friends' : a.visibility === 'public' ? 'Public' : 'Link only', url, version: latest?.version || '', icon: fam ? '' : iconOf(a.id), files: (a.releases || []).filter(r => r.status === 'live').flatMap(r => r.files.map(x => x.url)), self, qr: qrSvg(url, 220) };
+  });
+  const tiles = [
+    { id: 'zenith', name: 'Zenith Gen Orbit', url: site.baseUrl + '/', qr: qrSvg(site.baseUrl + '/', 220) },
+    { id: 'family', name: 'Family & friends', url: site.baseUrl + '/family/', qr: qrSvg(site.baseUrl + '/family/', 220) }
+  ];
+  return page({
+    title: `Owner · ${site.name}`, description: 'For the owner of Zenith Gen Orbit.', noindex: true,
+    csp: `default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self' ${f.supabaseUrl} https://api.github.com; manifest-src 'self'; base-uri 'none'; form-action 'none'`,
+    scripts: `\n<link rel="manifest" href="/owner/manifest.webmanifest">\n<script src="/assets/owner.js" defer></script>`,
+    body: `<div id="owner" data-supabase="${esc(f.supabaseUrl)}" data-key="${esc(f.publishableKey)}" data-repo="${esc(site.repo)}"><p class="muted">Loading…</p></div>
+<script type="application/json" id="owner-data">${JSON.stringify({ tiles, rows }).replace(/</g, '\\u003c')}</script>`
+  });
+}
+
 function appPage(app) {
   if (app.visibility === 'family') return familyStubPage(app);
   const plats = Object.keys(app.platforms);
@@ -449,6 +475,11 @@ write('terms.html', docPage('terms'));
 write('404.html', page({ title: `Not found · ${site.name}`, description: 'Page not found', noindex: true, body: `<section class="hero"><h1>Page not found</h1><p>That page doesn't exist, or it moved.</p></section><ul class="updates">${listed.map(a => `<li><a class="upd" href="/apps/${a.id}/"><img class="icon" src="${iconOf(a.id)}" alt="" width="44" height="44"><span><b>${esc(a.name)}</b><br><span class="small">${esc(a.tagline)}</span></span></a></li>`).join('')}</ul><p><a href="/">All apps</a></p>` }));
 write('updates/index.html', updatesPage());
 if (site.family) write('family/index.html', familyPage());
+if (site.family) {
+  write('owner/index.html', ownerPage());
+  json('owner/manifest.webmanifest', { name: 'Zenith Owner', short_name: 'Zenith', description: 'Open and share Zenith Gen Orbit', start_url: '/owner/', scope: '/', display: 'standalone', background_color: '#070a0f', theme_color: '#070a0f',
+    icons: [{ src: '/assets/owner-icon-192.png', sizes: '192x192', type: 'image/png' }, { src: '/assets/owner-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }] });
+}
 write('feed.xml', atomFeed());
 
 const catalog = [];
