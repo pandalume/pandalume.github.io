@@ -117,7 +117,7 @@ const releaseRow = ({ app, r }) => `<li><a class="upd" href="/apps/${app.id}/#${
   <img class="icon" src="${iconOf(app.id)}" alt="" width="44" height="44">
   <span><b>${esc(app.name)} ${esc(r.version)}</b><span class="muted small"> · ${date(r.date)}</span><br><span class="small">${esc(r.notes)}</span></span></a></li>`;
 
-const chips = app => Object.keys(app.platforms).map(p => `<span class="chip">${PLATFORMS[p]}</span>`).join('');
+const chips = app => Object.keys(app.platforms).sort((x, y) => (x === 'android' ? 0 : 1) - (y === 'android' ? 0 : 1)).map(p => `<span class="chip">${PLATFORMS[p]}</span>`).join('');
 
 // Android permissions in plain words (what Play shows under "App permissions"). Internal ones are hidden.
 const PERMS = {
@@ -272,6 +272,10 @@ function familyPage() {
 <noscript><p>The Family page needs JavaScript.</p></noscript>
 <p class="muted" data-state="loading">Loading…</p></div>
 <template id="fam-share-qr">${qrSvg(site.baseUrl + '/family/', 200)}</template>
+<script type="application/json" id="family-public">${JSON.stringify(apps.filter(a => a.visibility === 'public' || a.visibility === 'unlisted').map(a => {
+  const latest = (a.releases || []).find(r => r.status === 'live');
+  return { id: a.id, name: a.name, tagline: a.tagline, category: a.category || '', kind: a.kind || 'app', group: a.visibility, platforms: Object.keys(a.platforms).sort((x, y) => (x === 'android' ? 0 : 1) - (y === 'android' ? 0 : 1)), version: latest?.version || '', icon: iconOf(a.id), order: a.order ?? 99 };
+})).replace(/</g, '\\u003c')}</script>
 <p class="small muted">Signing in here tells our server only your email address, to check the invite list. See the <a href="/privacy.html">privacy policy</a>.</p>`
   });
 }

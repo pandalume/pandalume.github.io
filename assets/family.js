@@ -75,11 +75,19 @@
   const latestFor = (app, p) => (app.releases || []).find(r => r.status === 'live' && r.files.length && r.files.some(f => KINDS[f.kind] === p));
   const PLAT = { android: 'Android', windows: 'Windows' };
   const HINT = { apk: 'Android app', setup: 'Installs with a Start menu shortcut', portable: 'Runs without installing' };
-  const chips = app => Object.keys(app.platforms || {}).map(p => `<span class="chip">${PLAT[p]}</span>`).join('');
+  const chips = app => Object.keys(app.platforms || {}).sort((x, y) => (x === 'android' ? 0 : 1) - (y === 'android' ? 0 : 1)).map(p => `<span class="chip">${PLAT[p]}</span>`).join('');
   let apps = [], me = null;
 
   // The list, laid out like the main site's home page: apps and games apart, by genre when there are many.
+  // Public and link-only apps (from the page itself): family sees these too, without switching sites.
+  const PUBLIC = (() => { try { return JSON.parse(document.getElementById('family-public')?.textContent || '[]'); } catch { return []; } })();
   function card(a) {
+    if (a.group === 'public' || a.group === 'unlisted') return `<a class="card app-card" href="/apps/${esc(a.id)}/">
+  <img class="icon" alt="" width="64" height="64" src="${esc(a.icon)}">
+  <div><h3>${esc(a.name)}</h3><p class="muted small">${esc(a.category || '')}</p></div>
+  <p class="tag">${esc(a.tagline)}</p>
+  <div class="chips">${(a.platforms || []).map(p => `<span class="chip">${PLAT[p]}</span>`).join('')}${a.version ? `<span class="chip ghost">v${esc(a.version)}</span>` : '<span class="chip soon-chip">Coming soon</span>'}</div>
+</a>`;
     const latest = (a.releases || []).find(r => r.status === 'live');
     return `<a class="card app-card" href="#${esc(a.id)}">
   <img class="icon" alt="" width="64" height="64" data-img="${esc(a.id)}|icon">
@@ -99,8 +107,10 @@
   }
   function listView() {
     const shared = apps.filter(a => a.visibility !== 'owner'), mine = apps.filter(a => a.visibility === 'owner');
-    return `<section id="apps"><div class="sec-row"><h2 class="sec">Apps shared with you</h2></div>
+    const everyone = [...PUBLIC].sort((x, y) => x.order - y.order || x.name.localeCompare(y.name));
+    return `<section id="apps"><div class="sec-row"><h2 class="sec">Family &amp; friends <span class="muted small">shared with you</span></h2></div>
 ${shared.length ? kinds(shared) : '<p class="muted">No apps have been shared with you yet.</p>'}</section>
+${everyone.length ? `<section><div class="sec-row"><h2 class="sec">Public <span class="muted small">on Zenith for everyone</span></h2></div>${kinds(everyone)}</section>` : ''}
 ${mine.length ? `<section><div class="sec-row"><h2 class="sec">Just me <span class="muted small">only you can see these</span></h2></div>${kinds(mine)}</section>` : ''}`;
   }
 
