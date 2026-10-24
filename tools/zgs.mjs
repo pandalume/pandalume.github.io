@@ -114,10 +114,16 @@ function uploadAsset(uploadUrl, file, name) {
       res.on('end', () => { process.stdout.write('\n'); res.statusCode < 300 ? resolve(JSON.parse(body)) : reject(new Stop(`Upload of ${name} failed: GitHub ${res.statusCode} ${body.slice(0, 200)}`)); });
     });
     req.on('error', e => reject(new Stop(`Upload of ${name} failed: ${e.message}. Run the same command again to resume.`)));
-    let sent = 0, shown = -1;
+    // progress line with speed and time left, refreshed about once a second
+    let sent = 0, last = 0; const t0 = Date.now();
+    const show = () => {
+      const secs = (Date.now() - t0) / 1000, rate = sent / Math.max(secs, 0.1), left = (size - sent) / Math.max(rate, 1);
+      const eta = left > 90 ? `about ${Math.round(left / 60)} min left` : `about ${Math.max(1, Math.round(left))} s left`;
+      process.stdout.write(`\r    ${String(Math.floor(sent * 100 / size)).padStart(3)}%  ${mb(sent)} of ${mb(size)}  ·  ${(rate / 1e6).toFixed(2)} MB/s  ·  ${sent >= size ? 'finishing…' : eta}      `);
+    };
     fs.createReadStream(file).on('data', chunk => {
-      sent += chunk.length; const pct = Math.floor(sent * 100 / size);
-      if (pct !== shown && pct % 5 === 0) { shown = pct; process.stdout.write(`\r    ${pct}%`); }
+      sent += chunk.length;
+      if (Date.now() - last > 1000 || sent >= size) { last = Date.now(); show(); }
     }).on('error', reject).pipe(req);
   });
 }
@@ -455,16 +461,20 @@ async function publish(newApp = null) {
     f.url = family ? asset.url : asset.browser_download_url;          // private files are fetched through the API
     f.assetId = asset.id;
   }
-  // 2. prove the public copies are byte-for-byte the files on this PC
+  // 2. prove the public copies are byte-for-byte the files on this PC. GitHub reports each file's SHA-256
+  //    ("digest"), so there's no need to download everything again; older assets without one are downloaded.
   for (const f of build.files) {
     process.stdout.write(`  verifying ${f.upload}… `);
-    const got = await downloadSha(f.url);
+    const meta = await gh('GET', R(`/releases/assets/${f.assetId}`));
+    let got;
+    if (meta?.digest?.startsWith('sha256:')) got = { sha256: meta.digest.slice(7), size: meta.size };
+    else { got = await downloadSha(f.url); f.downloaded = true; }
     if (got.sha256 !== f.sha256 || got.size !== f.size) stop(`MISMATCH for ${f.upload}: the public file differs from yours. Nothing was announced. Delete the file from release ${tag} on GitHub and run again.`);
-    say(c.ok('ok'));
+    say(c.ok(f.downloaded ? 'ok (downloaded and checked)' : 'ok (GitHub\'s fingerprint matches)'));
   }
   // 3. announce: one commit updates page, buttons and feeds together
   // selfDownloads: the check download above, so it isn't counted as someone downloading the app
-  release.files = build.files.map(f => ({ kind: f.kind, name: f.upload, url: f.url, size: f.size, sha256: f.sha256, selfDownloads: 1, ...(family && { assetId: f.assetId }) }));
+  release.files = build.files.map(f => ({ kind: f.kind, name: f.upload, url: f.url, size: f.size, sha256: f.sha256, ...(f.downloaded && { selfDownloads: 1 }), ...(family && { assetId: f.assetId }) }));
   let raw = created ? created.raw : family ? Object.fromEntries(Object.entries(fresh).filter(([k]) => k !== '_file')) : readJson(fresh._file);
   if (family) raw.visibility = vis;
   if (listingChanges.length) applyListing(raw, listing, family);
