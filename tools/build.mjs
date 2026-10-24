@@ -228,6 +228,7 @@ function familyPage() {
 <div id="family" data-supabase="${esc(f.supabaseUrl)}" data-key="${esc(f.publishableKey)}" data-contact="${esc(site.contact)}">
 <noscript><p>The Family page needs JavaScript.</p></noscript>
 <p class="muted" data-state="loading">Loading…</p></div>
+<template id="fam-share-qr">${qrSvg(site.baseUrl + '/family/', 200)}</template>
 <p class="small muted">Signing in here tells our server only your email address, to check the invite list. See the <a href="/privacy.html">privacy policy</a>.</p>`
   });
 }

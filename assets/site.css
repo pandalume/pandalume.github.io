@@ -214,3 +214,8 @@ pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px
 .fam-form fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; display: grid; gap: 6px; }
 .fam-form .chk { display: flex; gap: 8px; align-items: center; }
 .fam-app button.btn { font: inherit; }
+.fam-share { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin: 8px 0 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.fam-share h3 { margin: 0 0 6px; }
+.fam-qr svg { display: block; width: 160px; height: 160px; border-radius: 10px; }
+.fam-acts { display: flex; gap: 14px; align-items: start; }
+.fam-owner button.btn { font: inherit; }

@@ -114,8 +114,14 @@ ${ds ? `<h3>Data safety</h3><ul class="feat">${(ds.collected || []).map(c => `<l
     const draw = async () => {
       const { members, apps } = await getJson({ action: 'members' });
       const appName = id => id === '*' ? 'all family apps' : (apps.find(a => a.id === id)?.name || id);
+      const qr = document.getElementById('fam-share-qr')?.innerHTML || '';
       box.innerHTML = `<h2>Invites <span class="muted small">(only you see this)</span></h2>
-${members.length ? `<ul class="fam-members">${members.map(m => `<li><span><b>${esc(m.name || m.email)}</b>${m.name ? ` <span class="muted small">${esc(m.email)}</span>` : ''}<br><span class="small muted">${esc(m.apps.map(appName).join(', '))}</span></span><button type="button" class="linkish" data-act="rm" data-email="${esc(m.email)}">Remove</button></li>`).join('')}</ul>` : '<p class="muted small">Nobody invited yet.</p>'}
+<div class="fam-share"><div class="fam-qr">${qr}</div><div>
+<h3>Share the Family page</h3>
+<p class="small muted">Face to face: let them scan this with their phone camera. Otherwise send them the link. They sign in with the Google email you invited.</p>
+<p><code>${esc(HOME)}</code></p>
+<div class="btns"><button type="button" class="btn btn-ghost" data-act="send">Share link…</button><button type="button" class="btn btn-ghost" data-act="copy">Copy link</button></div></div></div>
+${members.length ? `<ul class="fam-members">${members.map(m => `<li><span><b>${esc(m.name || m.email)}</b>${m.name ? ` <span class="muted small">${esc(m.email)}</span>` : ''}<br><span class="small muted">${esc(m.apps.map(appName).join(', '))}</span></span><span class="fam-acts"><button type="button" class="linkish" data-act="send" data-name="${esc(m.name || '')}" data-email="${esc(m.email)}">Send invite</button><button type="button" class="linkish" data-act="rm" data-email="${esc(m.email)}">Remove</button></span></li>`).join('')}</ul>` : '<p class="muted small">Nobody invited yet.</p>'}
 <form class="fam-form" data-act="add"><h3>Invite someone</h3>
 <label>Their Google email <input type="email" name="email" required autocomplete="off"></label>
 <label>Name (for you) <input type="text" name="name" maxlength="80" autocomplete="off"></label>
@@ -134,6 +140,16 @@ ${apps.map(a => `<label class="chk"><input type="checkbox" name="apps" value="${
       } catch (err) { alertIn(box, err.message); }
     });
     box.addEventListener('click', async e => {
+      const s = e.target.closest('[data-act="send"], [data-act="copy"]');
+      if (s) {
+        const who = s.dataset.email ? `Hi${s.dataset.name ? ' ' + s.dataset.name : ''}! ` : '';
+        const text = `${who}I've shared my apps with you. Open ${HOME} and sign in with Google${s.dataset.email ? ` (${s.dataset.email})` : ''} to download them.`;
+        try {
+          if (s.dataset.act === 'send' && navigator.share) await navigator.share({ title: 'Family & friends apps', text });
+          else { await navigator.clipboard.writeText(s.dataset.act === 'copy' ? HOME : text); s.textContent = 'Copied'; }
+        } catch { /* share sheet closed */ }
+        return;
+      }
       const b = e.target.closest('[data-act="rm"]');
       if (!b) return;
       if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Tap again to remove'; return; }
