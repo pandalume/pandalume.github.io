@@ -78,18 +78,30 @@
   const chips = app => Object.keys(app.platforms || {}).map(p => `<span class="chip">${PLAT[p]}</span>`).join('');
   let apps = [], me = null;
 
-  // The list, laid out like the main site's home page.
-  function listView() {
-    return `<section id="apps"><div class="sec-row"><h2 class="sec">Apps shared with you</h2></div>
-<div class="grid">${apps.map(a => {
-      const latest = (a.releases || []).find(r => r.status === 'live');
-      return `<a class="card app-card" href="#${esc(a.id)}">
+  // The list, laid out like the main site's home page: apps and games apart, by genre when there are many.
+  function card(a) {
+    const latest = (a.releases || []).find(r => r.status === 'live');
+    return `<a class="card app-card" href="#${esc(a.id)}">
   <img class="icon" alt="" width="64" height="64" data-img="${esc(a.id)}|icon">
   <div><h3>${esc(a.name)}</h3><p class="muted small">${esc(a.category || 'Family & friends')}</p></div>
   <p class="tag">${esc(a.tagline)}</p>
   <div class="chips">${chips(a)}${latest ? `<span class="chip ghost">v${esc(latest.version)}</span>` : '<span class="chip soon-chip">Coming soon</span>'}</div>
 </a>`;
-    }).join('') || '<p class="muted">No apps have been shared with you yet.</p>'}</div></section>`;
+  }
+  function section(list) {
+    const cats = [...new Set(list.map(a => a.category || 'Other'))].sort();
+    if (list.length < 4 || cats.length < 2) return `<div class="grid">${list.map(card).join('')}</div>`;
+    return cats.map(c => `<h3 class="genre">${esc(c)}</h3><div class="grid">${list.filter(a => (a.category || 'Other') === c).sort((x, y) => x.name.localeCompare(y.name)).map(card).join('')}</div>`).join('');
+  }
+  function kinds(list) {
+    const games = list.filter(a => a.kind === 'game'), rest = list.filter(a => a.kind !== 'game');
+    return games.length ? `${rest.length ? `<h3 class="genre">Apps</h3>${section(rest)}` : ''}<h3 class="genre">Games</h3>${section(games)}` : section(list);
+  }
+  function listView() {
+    const shared = apps.filter(a => a.visibility !== 'owner'), mine = apps.filter(a => a.visibility === 'owner');
+    return `<section id="apps"><div class="sec-row"><h2 class="sec">Apps shared with you</h2></div>
+${shared.length ? kinds(shared) : '<p class="muted">No apps have been shared with you yet.</p>'}</section>
+${mine.length ? `<section><div class="sec-row"><h2 class="sec">Just me <span class="muted small">only you can see these</span></h2></div>${kinds(mine)}</section>` : ''}`;
   }
 
   // One app, laid out like its page on the main site.
@@ -112,13 +124,16 @@ ${r ? `<p class="ver">Version ${esc(r.version)} · ${date(r.date)}</p>
     const ver = r => `<li class="${esc(r.status)}"><div class="vrow"><b>${esc(r.version)}</b><span class="muted small">${date(r.date)}</span></div><p>${esc(r.notes)}</p>${(r.changes || []).length ? `<ul>${r.changes.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}</li>`;
     return `<p class="small"><a href="#">← All shared apps</a></p>
 <section class="app-head"><img class="icon big" alt="" width="96" height="96" data-img="${esc(app.id)}|icon">
-<div class="app-title"><h1>${esc(app.name)}</h1><p class="by"><img src="/assets/pandalume-mark.webp" alt="" width="18" height="18">by <b>Pandalume Studio</b> <span class="muted">· Family &amp; friends</span></p><p class="tag">${esc(app.tagline)}</p>
+<div class="app-title"><h1>${esc(app.name)}</h1><p class="by"><img src="/assets/pandalume-mark.webp" alt="" width="18" height="18">by <b>Pandalume Studio</b> <span class="muted">· ${app.visibility === 'owner' ? 'Just me (only you can see this)' : 'Family &amp; friends'}</span></p><p class="tag">${esc(app.tagline)}</p>
 <div class="chips">${chips(app)}${app.category ? `<span class="chip ghost">${esc(app.category)}</span>` : ''}</div></div></section>
 ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
 <section class="dls">${panels}</section>
 ${shots.length ? `<section><h2 class="sec">Screenshots</h2><div class="shots style-${esc(app.shotStyle || 'clean')}">${shots.map(s => `<span class="shot${s.wide ? ' wide' : ''}"><img alt="" data-img="${esc(app.id)}|shots/${esc(s.file)}"></span>`).join('')}</div></section>` : ''}
 <section><h2 class="sec">About</h2>${(app.description || []).map(p => `<p>${esc(p)}</p>`).join('')}
-${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}</section>
+${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
+${(app.tags || []).length ? `<div class="chips tags">${app.tags.map(t => `<span class="chip ghost">${esc(t)}</span>`).join('')}</div>` : ''}</section>
+${(() => { const today = new Date().toISOString().slice(0, 10); const evs = (app.events || []).filter(e => (!e.starts || e.starts <= today) && (!e.ends || e.ends >= today));
+  return evs.length ? `<section><h2 class="sec">Events &amp; offers</h2><div class="events">${evs.map(e => `<div class="card event">${e.ends ? `<span class="chip warn-chip">Ends ${date(e.ends)}</span>` : '<span class="chip">Now on</span>'}<h3>${esc(e.title)}</h3>${e.text ? `<p class="small">${esc(e.text)}</p>` : ''}${e.url ? `<a class="small" href="${esc(e.url)}">${esc(e.link || 'Find out more')} →</a>` : ''}</div>`).join('')}</div></section>` : ''; })()}
 ${ds ? `<section><h2 class="sec">Data safety</h2><div class="card ds">
 ${(ds.collected || []).length ? `<div class="ds-row"><span aria-hidden="true">•</span><div><b>Collects, only if you sign in</b><span>${esc(ds.collected.map(c => c.data).join(' · '))}</span></div></div>` : '<div class="ds-row"><span aria-hidden="true">•</span><div><b>Collects no data</b></div></div>'}
 ${(ds.sent || []).map(x => `<div class="ds-row"><span aria-hidden="true">•</span><div><b>Sends ${esc(x.data)}</b><span>to ${esc(x.to)}: ${esc(x.why)}</span></div></div>`).join('')}

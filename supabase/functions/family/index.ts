@@ -98,7 +98,7 @@ Deno.serve(async req => {
       if (req.method === 'GET') {
         const { data, error } = await db.from('family_members').select('*').order('added_at');
         if (error) throw error;
-        return json({ members: data, apps: (await allApps()).map(a => ({ id: a.id, name: a.name })) });
+        return json({ members: data, apps: (await allApps()).filter(a => a.visibility === 'family').map(a => ({ id: a.id, name: a.name })) });
       }
       if (req.method === 'POST') {
         const b = await req.json();
@@ -118,7 +118,8 @@ Deno.serve(async req => {
 
     if (!member) return json({ member: false, email }, action === 'catalog' ? 200 : 403);
     const may = (id: string) => member!.apps.includes('*') || member!.apps.includes(id);
-    const apps = (await allApps()).filter(a => may(a.id) && a.visibility === 'family');
+    // "owner" apps (Just me) are published but shown to owners only.
+    const apps = (await allApps()).filter(a => may(a.id) && (a.visibility === 'family' || (owner && a.visibility === 'owner')));
 
     if (action === 'catalog') return json({ member: true, owner, email, apps: apps.map(publicView) });
 

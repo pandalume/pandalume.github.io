@@ -251,3 +251,11 @@ pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px
 .support a, .support div { display: grid; gap: 2px; padding: 10px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--text); }
 .support > :last-child { border-bottom: 0; }
 .support span { color: var(--muted); font-size: 14px; }
+.owner-sites { margin: 14px 0 26px; }
+
+/* events & offers, genre headings */
+.events { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.event h3 { margin: 8px 0 4px; }
+.warn-chip { background: rgba(251, 191, 36, .15); color: #fcd34d; }
+.genre { font-size: 15px; color: var(--muted); margin: 18px 0 10px; font-weight: 600; }
+.kind-head { margin-top: 26px; }

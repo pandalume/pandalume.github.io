@@ -8,7 +8,8 @@
 //   node tools/zgs.mjs status [app]
 //   node tools/zgs.mjs verify [--deep]
 //   node tools/zgs.mjs mine <app> [android|windows]   don't count a download you made yourself
-//   node tools/zgs.mjs move <app> family [--delete-public]   make an app family & friends only
+//   node tools/zgs.mjs move <app> family|owner [--delete-public]   family & friends, or "just me"
+//   node tools/zgs.mjs listing <app>     update the page (text, events, screenshots) without a release
 //
 // publish: reads the newest build from Finished Apps, checks it, uploads it to a GitHub release,
 // re-downloads every file to confirm its SHA-256, and only then records the version in
@@ -218,10 +219,11 @@ async function fDelete(p, sha, message) { await gh('DELETE', FAPI('/contents/' +
 /** The full data of a family app: the website keeps only a stub (name, platforms) for its policy pages. */
 async function familyApp(stub) {
   const remote = await fGetJson(`apps/${stub.id}.json`);
-  return { ...stub, ...(remote || { releases: [] }), visibility: 'family', _file: stub._file };
+  return { ...stub, ...(remote || { releases: [] }), visibility: stub.visibility, _file: stub._file };
 }
 // What the public website keeps of a family app: enough for its privacy and terms pages, nothing else.
 const STUB = ['id', 'name', 'order', 'visibility', 'tagline', 'contentNoun', 'platforms'];
+const PRIVATE_REPO = v => v === 'family' || v === 'owner';     // these live in the private repository
 const stubOf = raw => Object.fromEntries(STUB.filter(k => raw[k] !== undefined).map(k => [k, raw[k]]));
 
 /** Uploads a family app's listing images to the private repo, removing screenshots that are gone. */
@@ -236,7 +238,7 @@ async function pushFamilyFiles(id, L, label) {
 // An app chat can set up (and later update) the app's page without the hub chat by keeping a
 // "Store listing" folder next to the builds:  listing.json, icon, screenshots\, screenshots-windows\,
 // privacy.html, terms.html. Studio Standards\README.md explains each file.
-const LISTING = 'Store listing', IMG = /\.(webp|png|jpe?g)$/i, TEXT = ['name', 'tagline', 'category', 'description', 'features', 'contentNoun', 'shotStyle', 'dataSafety', 'tags', 'ads', 'purchases'];
+const LISTING = 'Store listing', IMG = /\.(webp|png|jpe?g)$/i, TEXT = ['name', 'tagline', 'category', 'description', 'features', 'contentNoun', 'shotStyle', 'dataSafety', 'tags', 'ads', 'purchases', 'events', 'kind'];
 const hashBuf = b => crypto.createHash('sha256').update(b).digest('hex');
 const appDir = id => path.join(ROOT, 'content', 'apps', id);
 
@@ -322,8 +324,8 @@ function newAppFromListing(L, folder) {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id || '')) stop(`listing.json needs "id": lowercase-with-dashes, e.g. "my-app".`);
   for (const k of ['name', 'tagline']) if (!l[k]) stop(`listing.json needs "${k}".`);
   if (!Object.keys(L.files).some(r => r.startsWith('icon.'))) stop(`${L.dir} needs icon.png or icon.webp (512 x 512).`);
-  if (!L.files['privacy.html']) stop(`${L.dir} needs privacy.html (what the app collects and where it goes; see Studio Standards).`);
-  if (!l.dataSafety) stop('listing.json needs "dataSafety" (what the app collects and sends; see Studio Standards README section 9).');
+  if (l.visibility !== 'owner' && !L.files['privacy.html']) stop(`${L.dir} needs privacy.html (what the app collects and where it goes; see Studio Standards).`);
+  if (l.visibility !== 'owner' && !l.dataSafety) stop('listing.json needs "dataSafety" (what the app collects and sends; see Studio Standards README section 9).');
   const platforms = {};
   for (const [p, info] of Object.entries(l.platforms || {})) {
     if (!PLATFORMS[p]) stop(`listing.json: unknown platform "${p}" (use android or windows).`);
@@ -370,9 +372,9 @@ async function publish(newApp = null) {
   const backfill = !!flags.backfill;
   if (backfill && !flags.from) stop('--backfill needs --from "<folder with the old build>".');
   const listing = backfill ? null : readListing(folder);
-  const family = (listing?.l.visibility ?? app.visibility) === 'family';
-  if (family && !created) app = await familyApp(app);
-  if (family) app.visibility = 'family';
+  const vis = listing?.l.visibility ?? app.visibility, family = PRIVATE_REPO(vis);
+  if (family && !created && PRIVATE_REPO(app.visibility)) app = await familyApp(app);
+  if (family) app.visibility = vis;
   const listingChanges = !listing ? [] : family ? await listingDiffFamily(app, listing) : listingDiff(app, listing);
   policyGuard(app, listing);
 
@@ -417,7 +419,7 @@ async function publish(newApp = null) {
   say(`  notes    ${notes}`);
   for (const ch of changes) say(`           • ${ch}`);
   if (app.platforms.android && build.code != null) say(`  ${c.ok('✓')} signed with the ${app.name} release key`);
-  if (family) say(`  ${c.ok('✓')} family & friends only: files go to the private repository, shown to invited people on ${SITE().baseUrl}/family/`);
+  if (family) say(`  ${c.ok('✓')} ${vis === 'owner' ? 'just me: files go to the private repository, shown only to you' : `family & friends only: files go to the private repository, shown to invited people`} on ${SITE().baseUrl}/family/`);
   if (created) {
     say(c.b(`\n  New app on Zenith: ${app.name} (${app.visibility})`));
     say(`  page     ${SITE().baseUrl}/${family ? 'family/' : `apps/${app.id}/`}`);
@@ -464,7 +466,7 @@ async function publish(newApp = null) {
   // selfDownloads: the check download above, so it isn't counted as someone downloading the app
   release.files = build.files.map(f => ({ kind: f.kind, name: f.upload, url: f.url, size: f.size, sha256: f.sha256, selfDownloads: 1, ...(family && { assetId: f.assetId }) }));
   let raw = created ? created.raw : family ? Object.fromEntries(Object.entries(fresh).filter(([k]) => k !== '_file')) : readJson(fresh._file);
-  if (family) raw.visibility = 'family';
+  if (family) raw.visibility = vis;
   if (listingChanges.length) applyListing(raw, listing, family);
   raw.releases = [...(raw.releases || []), release].sort((a, b) => cmpVersion(b.version, a.version));
   if (family) {
@@ -554,12 +556,12 @@ async function status() {
   const site = SITE(), apps = pos[0] ? [appById(pos[0])] : DATA().apps;
   const counts = {};
   try { for (const r of (await gh('GET', '/releases?per_page=100')) || []) for (const a of r.assets) counts[a.browser_download_url] = a.download_count; } catch (e) { say(c.dim(`(download counts unavailable: ${e.message})`)); }
-  if (apps.some(a => a.visibility === 'family'))
+  if (apps.some(a => PRIVATE_REPO(a.visibility)))
     try { for (const r of (await gh('GET', FAPI('/releases?per_page=100'))) || []) for (const a of r.assets) counts[a.url] = a.download_count; } catch (e) { say(c.dim(`(family download counts unavailable: ${e.message})`)); }
   for (const app0 of apps) {
-    const app = app0.visibility === 'family' ? await familyApp(app0) : app0;
+    const app = PRIVATE_REPO(app0.visibility) ? await familyApp(app0) : app0;
     say(`\n${c.b(app.name)} ${c.dim(`[${app.visibility}]`)}`);
-    for (const p of app.visibility === 'family' ? [] : Object.keys(app.platforms)) {
+    for (const p of PRIVATE_REPO(app.visibility) ? [] : Object.keys(app.platforms)) {
       const want = latestFor(app, p)?.version || '-';
       let live = '-';
       try { const res = await fetch(`${site.baseUrl}/api/${app.id}/${p}.json?t=${Date.now()}`); if (res.ok) live = (await res.json()).name; } catch { live = '?'; }
@@ -600,8 +602,21 @@ async function verify() {
  *  (--delete-public removes those releases, after the copy is verified). */
 async function move() {
   const app = appById(pos[0] || stop('Usage: zgs move <app> family [--delete-public]'));
-  if (pos[1] !== 'family') stop('Only "family" is supported: zgs move <app> family');
-  if (app.visibility === 'family') {
+  const to = pos[1];
+  if (!['family', 'owner'].includes(to)) stop('Usage: zgs move <app> family   or   zgs move <app> owner   (owner = "just me")');
+  if (PRIVATE_REPO(app.visibility) && app.visibility !== to) {           // already private: just switch who sees it
+    const fam = await familyApp(app);
+    if (!(await confirm(`Make ${app.name} ${to === 'owner' ? '"just me" (only you see it)' : 'family & friends'}?`))) stop('Cancelled.');
+    git('pull', '--ff-only', '--quiet');
+    const raw = Object.fromEntries(Object.entries(fam).filter(([k]) => k !== '_file'));
+    raw.visibility = to;
+    await fPut(`apps/${app.id}.json`, Buffer.from(JSON.stringify(raw, null, 2) + '\n'), `${app.name}: ${to === 'owner' ? 'just me' : 'family & friends'}`);
+    writeJson(app._file, stubOf(raw));
+    _data = null; loadData();
+    git('add', app._file); git('commit', '--quiet', '-m', `${app.name} is now ${to === 'owner' ? '"just me"' : 'family & friends'}`); pushWithRetry();
+    return say(c.ok(`Done. ${app.name} is now ${to === 'owner' ? 'visible only to you' : 'shared with invited people'} on ${SITE().baseUrl}/family/`));
+  }
+  if (app.visibility === 'family' || app.visibility === 'owner') {
     if (!flags['delete-public']) stop(`${app.name} is already family-only.`);
     if (!(await confirm(`Delete the public GitHub releases of ${app.name}? Its private copies stay.`))) stop('Cancelled.');
     const fam = await familyApp(app);
@@ -643,7 +658,7 @@ async function move() {
     }
   }
   fs.rmSync(tmp, { recursive: true, force: true });
-  raw.visibility = 'family';
+  raw.visibility = to;
   const dir = appDir(app.id);
   for (const rel of ['icon.webp', 'icon.png', 'icon.jpg', ...(raw.screenshots || []).map(s => 'shots/' + (typeof s === 'string' ? s : s.file))])
     if (fs.existsSync(path.join(dir, rel))) await fPut(`apps/${app.id}/${rel}`, fs.readFileSync(path.join(dir, rel)), `Move ${app.name}: ${rel}`);
@@ -695,7 +710,7 @@ async function mine() {
 /** Stops a publish when the app's policy isn't ready (Studio Standards workflow). */
 function policyGuard(app, listing = null) {
   if (app.visibility === 'private') stop(`${app.name} is private. Its files would still be public on GitHub. Set "visibility" to "unlisted" or "public" first.`);
-  if (!fs.existsSync(path.join(ROOT, 'content', 'apps', app.id, 'privacy.html')) && !listing?.files['privacy.html'])
+  if (app.visibility !== 'owner' && !fs.existsSync(path.join(ROOT, 'content', 'apps', app.id, 'privacy.html')) && !listing?.files['privacy.html'])
     stop(`${app.name} has no privacy policy section yet. Put privacy.html in its "${LISTING}" folder (see Studio Standards), or ask the hub chat: "add ${app.name} to the hub".`);
   const sheet = CONFIG.standardsDir && path.join(CONFIG.standardsDir, `${app.name}.md`);
   if (!sheet || !fs.existsSync(sheet)) { say(c.dim(`(No Studio Standards sheet found for ${app.name}; skipping the pending-changes check.)`)); return; }
@@ -708,7 +723,7 @@ async function menu() {
   const rows = [];
   for (const app0 of DATA().apps) {
     if (!CONFIG.apps[app0.id] || app0.visibility === 'private') continue;
-    const app = app0.visibility === 'family' ? await familyApp(app0) : app0;
+    const app = PRIVATE_REPO(app0.visibility) ? await familyApp(app0) : app0;
     const live = (app.releases || []).find(r => r.status === 'live')?.version || '-';
     let state, ready = false;
     try {
@@ -721,13 +736,15 @@ async function menu() {
   }
   const fresh = newListings();
   say(c.b('\nZenith Gen Orbit: publish\n'));
-  rows.forEach((r, i) => say(`  ${String(i + 1).padStart(2)}. ${r.app.name.padEnd(18)} live ${r.live.padEnd(9)} ${r.state}`));
+  const GROUP = { public: 'public', unlisted: 'link only', family: 'family', owner: 'just me' };
+  rows.forEach((r, i) => say(`  ${String(i + 1).padStart(2)}. ${r.app.name.padEnd(18)} ${c.dim((GROUP[r.app.visibility] || '').padEnd(10))} live ${r.live.padEnd(9)} ${r.state}`));
   fresh.forEach((n, i) => say(`  ${String(rows.length + i + 1).padStart(2)}. ${n.id.padEnd(18)} ${c.ok('new app, not on Zenith yet')}  ${c.dim(path.relative(CONFIG.finishedApps, n.folder))}`));
-  say(c.dim('\n  s = status and download counts, m = a download was me, v = check all links, q = quit'));
+  say(c.dim('\n  s = status and download counts, l = update an app\'s page only (events, text), m = a download was me, v = check all links, q = quit'));
   const pick = (await ask('\nChoose: ')).toLowerCase();
   if (pick === 's') return status();
   if (pick === 'v') return verify();
   if (pick === 'm') { pos[0] = await ask('Which app id (e.g. bambowl)? '); return mine(); }
+  if (pick === 'l') { pos[0] = await ask('Which app id (e.g. bambowl)? '); return listingCmd(); }
   const n = Number(pick) - 1;
   if (fresh[n - rows.length]) return publish(fresh[n - rows.length]);
   const row = rows[n];
@@ -736,7 +753,35 @@ async function menu() {
   return publish();
 }
 
-const COMMANDS = { publish: () => publish(), pull, status, verify, mine, move };
+/** zgs listing <app>: updates the app's page (text, tags, events, icon, screenshots, policy) from its
+ *  Store listing folder, without publishing a new version. Handy for adding or ending an event. */
+async function listingCmd() {
+  let app = appById(pos[0] || stop('Usage: zgs listing <app>'));
+  const folder = path.join(CONFIG.finishedApps, CONFIG.apps[app.id] || stop(`Add "${app.id}" to tools/zgs.config.json.`));
+  const L = readListing(folder) || stop(`No "${LISTING}" folder with listing.json in ${folder}.`);
+  const family = PRIVATE_REPO(app.visibility);
+  if (family) app = await familyApp(app);
+  const changes = family ? await listingDiffFamily(app, L) : listingDiff(app, L);
+  if (!changes.length) return say(c.ok(`${app.name}'s page already matches its Store listing.`));
+  say(`${app.name}: will update ${changes.join(', ')}`);
+  if (!(await confirm('Update the page?'))) stop('Cancelled.');
+  git('pull', '--ff-only', '--quiet');
+  const raw = family ? Object.fromEntries(Object.entries(await familyApp(appById(app.id))).filter(([k]) => k !== '_file')) : readJson(app._file);
+  applyListing(raw, L, family);
+  const errs = validate(SITE(), [{ ...raw, _file: app._file }]);
+  if (errs.length) stop('The listing would make the data invalid:\n  ' + errs.join('\n  '));
+  if (family) {
+    await pushFamilyFiles(app.id, L, `${app.name} listing`);
+    await fPut(`apps/${app.id}.json`, Buffer.from(JSON.stringify(raw, null, 2) + '\n'), `${app.name}: update listing`);
+    writeJson(app._file, stubOf(raw));
+  } else writeJson(app._file, raw);
+  _data = null; loadData();
+  git('add', '-A', '--', app._file, path.join('content', 'apps', app.id));
+  if (git('status', '--porcelain', '--', app._file, path.join('content', 'apps', app.id))) { git('commit', '--quiet', '-m', `${app.name}: update listing`); pushWithRetry(); }
+  say(c.ok(`Updated. Live in about a minute${family ? ' (the Family page shows it straight away)' : ''}.`));
+}
+
+const COMMANDS = { publish: () => publish(), pull, status, verify, mine, move, listing: listingCmd };
 try {
   if (!cmd) await menu();
   else if (!COMMANDS[cmd]) { say(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 10).map(l => l.replace(/^\/\/ ?/, '')).join('\n')); process.exitCode = 1; }

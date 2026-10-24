@@ -99,5 +99,16 @@
       ]
     }
   ],
-  "contentNoun": "your recipes, meal plans and grocery lists"
+  "contentNoun": "your recipes, meal plans and grocery lists",
+  "events": [
+    {
+      "title": "Autumn recipe challenge",
+      "text": "Cook three new recipes this month.",
+      "url": "/apps/bambowl/"
+    },
+    {
+      "title": "Old event",
+      "ends": "2020-01-31"
+    }
+  ]
 }

@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { ROOT, PLATFORMS, KINDS, loadData, latestFor, androidFeed, windowsFeed, appUrl, timeline } from './lib.mjs';
+import { currentEvents, ROOT, PLATFORMS, KINDS, loadData, latestFor, androidFeed, windowsFeed, appUrl, timeline } from './lib.mjs';
 const qrcode = createRequire(import.meta.url)('./vendor/qrcode.cjs');   // MIT, Kazuhiko Arase
 
 const args = process.argv.slice(2);
@@ -17,7 +17,7 @@ const OUT = path.resolve(opt('--out') || path.join(ROOT, 'dist'));
 const CONTENT = path.join(ROOT, 'content');
 
 const { site, apps: allApps } = loadData(DATA);
-const apps = allApps.filter(a => a.visibility !== 'private');          // private apps get nothing at all
+const apps = allApps.filter(a => a.visibility !== 'private' && a.visibility !== 'owner');   // private and "just me" apps get nothing public
 const listed = apps.filter(a => a.visibility === 'public');
 const counts = args.includes('--no-counts') ? {} : await downloadCounts();
 
@@ -153,7 +153,7 @@ function home() {
   const plats = [...new Set(listed.flatMap(a => Object.keys(a.platforms)))];
   const filters = listed.length >= 4 && plats.length > 1 ? `<div class="filters" role="group" aria-label="Filter by platform">
   <button type="button" class="chip-btn on" data-filter="">All</button>${plats.map(p => `<button type="button" class="chip-btn" data-filter="${p}">${PLATFORMS[p]}</button>`).join('')}</div>` : '';
-  const cards = listed.map(a => {
+  const card = a => {
     const latest = (a.releases || []).find(r => r.status === 'live');
     return `<a class="card app-card${latest ? '' : ' soon'}" href="/apps/${a.id}/" data-platforms="${Object.keys(a.platforms).join(' ')}">
   <img class="icon" src="${iconOf(a.id)}" alt="" width="64" height="64">
@@ -161,7 +161,18 @@ function home() {
   <p class="tag">${esc(a.tagline)}</p>
   <div class="chips">${chips(a)}${latest ? `<span class="chip ghost">v${esc(latest.version)}</span>` : '<span class="chip soon-chip">Coming soon</span>'}</div>
 </a>`;
-  }).join('\n');
+  };
+  // Sorted automatically: games and apps apart, and by genre (category) once there are enough of them.
+  const byName = (x, y) => x.name.localeCompare(y.name);
+  const section = list => {
+    const cats = [...new Set(list.map(a => a.category || 'Other'))].sort();
+    if (list.length < 4 || cats.length < 2) return `<div class="grid">${list.map(card).join('\n')}</div>`;
+    return cats.map(c => `<h3 class="genre">${esc(c)}</h3><div class="grid">${list.filter(a => (a.category || 'Other') === c).sort(byName).map(card).join('\n')}</div>`).join('\n');
+  };
+  const appsList = listed.filter(a => a.kind !== 'game'), games = listed.filter(a => a.kind === 'game');
+  const cards = games.length
+    ? `${appsList.length ? `<h2 class="sec kind-head">Apps</h2>${section(appsList)}` : ''}<h2 class="sec kind-head" id="games">Games</h2>${section(games)}`
+    : section(listed);
   const recent = timeline(listed).slice(0, 3);
   return page({
     title: `${site.name}: apps and games by ${site.developer}`,
@@ -174,7 +185,7 @@ function home() {
   <p>Small, private apps made by one developer. No ads, no tracking. Download them here directly, always the newest version, with every older one kept.</p>
 </section>
 <section id="apps"><div class="sec-row"><h2 class="sec">Apps</h2>${filters}</div>
-<div class="grid">${cards || '<p class="muted">Apps are on their way.</p>'}</div></section>
+${listed.length ? cards : '<p class="muted">Apps are on their way.</p>'}</section>
 ${recent.length ? `<section><div class="sec-row"><h2 class="sec">Latest updates</h2><a class="small" href="/updates/">All updates →</a></div><ul class="updates">${recent.map(releaseRow).join('')}</ul></section>` : ''}
 <section class="principles">
   <div><b>No ads</b><span>None, in any app.</span></div>
@@ -267,13 +278,13 @@ function familyPage() {
 // Not linked from anywhere; shows nothing useful unless you're signed in as an owner.
 function ownerPage() {
   const f = site.family;
-  const rows = apps.map(a => {
+  const rows = apps.filter(a => a.visibility !== 'family').map(a => {
     const fam = a.visibility === 'family';
     const url = fam ? `${site.baseUrl}/family/#${a.id}` : appUrl(site, a);
     const latest = (a.releases || []).find(r => r.status === 'live');
     const self = {};
     for (const r of (a.releases || []).filter(r => r.status === 'live')) for (const x of r.files) if (x.selfDownloads) self[x.url] = x.selfDownloads;
-    return { id: a.id, name: a.name, group: fam ? 'Family & friends' : a.visibility === 'public' ? 'Public' : 'Link only', url, version: latest?.version || '', icon: fam ? '' : iconOf(a.id), files: (a.releases || []).filter(r => r.status === 'live').flatMap(r => r.files.map(x => x.url)), self, qr: qrSvg(url, 220) };
+    return { id: a.id, name: a.name, group: fam ? 'Family & friends' : a.visibility === 'public' ? 'Public' : 'Link only', url, version: latest?.version || '', category: a.category || '', icon: fam ? '' : iconOf(a.id), files: (a.releases || []).filter(r => r.status === 'live').flatMap(r => r.files.map(x => x.url)), self, qr: qrSvg(url, 220) };
   });
   const tiles = [
     { id: 'zenith', name: 'Zenith Gen Orbit', url: site.baseUrl + '/', qr: qrSvg(site.baseUrl + '/', 220) },
@@ -282,7 +293,7 @@ function ownerPage() {
   return page({
     title: `Owner · ${site.name}`, description: 'For the owner of Zenith Gen Orbit.', noindex: true,
     csp: `default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self' ${f.supabaseUrl} https://api.github.com; manifest-src 'self'; base-uri 'none'; form-action 'none'`,
-    scripts: `\n<link rel="manifest" href="/owner/manifest.webmanifest">\n<script src="/assets/owner.js" defer></script>`,
+    scripts: `\n<link rel="manifest" href="/owner/manifest.webmanifest">\n<script src="/assets/qrcode.js" defer></script>\n<script src="/assets/owner.js" defer></script>`,
     body: `<div id="owner" data-supabase="${esc(f.supabaseUrl)}" data-key="${esc(f.publishableKey)}" data-repo="${esc(site.repo)}"><p class="muted">Loading…</p></div>
 <script type="application/json" id="owner-data">${JSON.stringify({ tiles, rows }).replace(/</g, '\\u003c')}</script>`
   });
@@ -363,6 +374,12 @@ ${ds.sent?.length ? `<ul>${ds.sent.map(x => `<li><b>${esc(x.data)}</b><span>to $
 </details>
 </div></section>` : '';
 
+  // Events & offers (like Play's): only ones running today; a rebuild hides them once they end.
+  const evs = currentEvents(app);
+  const events = evs.length ? `<section><h2 class="sec">Events &amp; offers</h2><div class="events">${evs.map(e => `<div class="card event">
+${e.ends ? `<span class="chip warn-chip">Ends ${date(e.ends)}</span>` : '<span class="chip">Now on</span>'}
+<h3>${esc(e.title)}</h3>${e.text ? `<p class="small">${esc(e.text)}</p>` : ''}${e.url ? `<a class="small" href="${esc(e.url)}">${esc(e.link || 'Find out more')} →</a>` : ''}</div>`).join('')}</div></section>` : '';
+
   // App info, like Play's "About this app" details: facts only, all from the release data.
   const firstRel = [...(app.releases || [])].reverse().find(r => r.status === 'live');
   const apkRel = latestFor(app, 'android');
@@ -422,6 +439,7 @@ ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}<
 <section class="dls">${panels}</section>
 ${shots}
 ${about}
+${events}
 ${safety}
 ${versions}
 ${appInfo}
@@ -538,6 +556,7 @@ write('terms.html', docPage('terms'));
 write('404.html', page({ title: `Not found · ${site.name}`, description: 'Page not found', noindex: true, body: `<section class="hero"><h1>Page not found</h1><p>That page doesn't exist, or it moved.</p></section><ul class="updates">${listed.map(a => `<li><a class="upd" href="/apps/${a.id}/"><img class="icon" src="${iconOf(a.id)}" alt="" width="44" height="44"><span><b>${esc(a.name)}</b><br><span class="small">${esc(a.tagline)}</span></span></a></li>`).join('')}</ul><p><a href="/">All apps</a></p>` }));
 write('updates/index.html', updatesPage());
 if (site.family) write('family/index.html', familyPage());
+fs.copyFileSync(path.join(ROOT, 'tools', 'vendor', 'qrcode.cjs'), path.join(OUT, 'assets', 'qrcode.js'));   // for the owner app
 if (site.family) {
   write('owner/index.html', ownerPage());
   json('owner/manifest.webmanifest', { name: 'Zenith Owner', short_name: 'Zenith', description: 'Open and share Zenith Gen Orbit', start_url: '/owner/', scope: '/', display: 'standalone', background_color: '#070a0f', theme_color: '#070a0f',

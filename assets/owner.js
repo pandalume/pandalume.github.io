@@ -40,6 +40,7 @@
   }
   function toast(t) { const p = document.createElement('p'); p.className = 'owner-toast'; p.textContent = t; document.body.append(p); setTimeout(() => p.remove(), 1800); }
   function showQr(item) {
+    item = { ...item, qr: item.qr || qrSvg(item.url) };
     const box = document.createElement('div');
     box.className = 'lightbox owner-qr';
     box.setAttribute('role', 'dialog');
@@ -64,17 +65,32 @@
     } catch { /* offline */ }
   }
 
+  // Client-side QR (same MIT generator the site build uses), so any app, public or private, gets one.
+  function qrSvg(text) {
+    const q = window.qrcode(0, 'M'); q.addData(text); q.make();
+    const n = q.getModuleCount(), m = 2, size = n + m * 2; let d = '';
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (q.isDark(y, x)) d += `M${x + m} ${y + m}h1v1h-1z`;
+    return `<svg viewBox="0 0 ${size} ${size}" role="img" aria-label="QR code"><rect width="${size}" height="${size}" fill="#fff"/><path d="${d}" fill="#070a0f"/></svg>`;
+  }
+  const GROUPS = [
+    ['Public', 'Anyone. Listed on Zenith and Google.'],
+    ['Link only', 'Anyone with the link. Not listed.'],
+    ['Family & friends', 'Only people you invited.'],
+    ['Just me', 'Published, but only you can see and download it.'],
+  ];
+  function row(r) {
+    return `<li class="card">
+${r.icon ? `<img class="icon" src="${esc(r.icon)}" alt="" width="48" height="48">` : `<span class="icon owner-noicon" data-icon="${esc(r.id)}" aria-hidden="true">🔒</span>`}
+<div class="owner-app"><a href="${esc(r.url)}"><b>${esc(r.name)}</b></a><span class="small muted">${r.version ? 'v' + esc(r.version) : 'No version yet'}${r.category ? ' · ' + esc(r.category) : ''}</span><span class="small muted" data-count="${r.id}"></span></div>
+<div class="owner-acts">${r.group === 'Just me' ? '' : `<button type="button" class="linkish" data-act="qr" data-id="${r.id}">QR</button><button type="button" class="linkish" data-act="share" data-id="${r.id}">Share</button>`}</div></li>`;
+  }
   function view(email) {
     root.innerHTML = `<section class="owner-head"><h1>Zenith Owner</h1><p class="small muted">${esc(email)} · <button type="button" class="linkish" data-act="out">Sign out</button></p></section>
-<div class="owner-tiles">${data.tiles.map(t => `<div class="card owner-tile">
-<a class="owner-open" href="${esc(t.url)}"><b>${esc(t.name)}</b><span class="small muted">${esc(t.url.replace('https://', ''))}</span></a>
-<div class="btns"><button type="button" class="btn btn-iri" data-act="qr" data-id="${t.id}">Show QR</button><button type="button" class="btn btn-ghost" data-act="share" data-id="${t.id}">Share</button></div>
-${t.id === 'family' ? '<p class="small"><a href="/family/">Invite or remove people →</a></p>' : ''}</div>`).join('')}</div>
-<h2 class="sec">Apps</h2>
-<ul class="owner-apps">${data.rows.map(r => `<li class="card">
-${r.icon ? `<img class="icon" src="${esc(r.icon)}" alt="" width="48" height="48">` : '<span class="icon owner-noicon" aria-hidden="true">🔒</span>'}
-<div class="owner-app"><a href="${esc(r.url)}"><b>${esc(r.name)}</b></a><span class="small muted">${esc(r.group)}${r.version ? ' · v' + esc(r.version) : ''}</span><span class="small muted" data-count="${r.id}"></span></div>
-<div class="owner-acts"><button type="button" class="linkish" data-act="qr" data-id="${r.id}">QR</button><button type="button" class="linkish" data-act="share" data-id="${r.id}">Share</button></div></li>`).join('')}</ul>
+<ul class="owner-apps owner-sites">${data.tiles.map(t => `<li class="card">
+<div class="owner-app"><a href="${esc(t.url)}"><b>${esc(t.name)}</b></a><span class="small muted">${esc(t.url.replace('https://', ''))}${t.id === 'family' ? ' · <a href="/family/">Invites</a>' : ''}</span></div>
+<div class="owner-acts"><button type="button" class="linkish" data-act="qr" data-id="${t.id}">QR</button><button type="button" class="linkish" data-act="share" data-id="${t.id}">Share</button></div></li>`).join('')}</ul>
+${GROUPS.map(([g, hint]) => { const rs = data.rows.filter(r => r.group === g); return `<section class="owner-group"><h2 class="sec">${esc(g)} <span class="muted small">${rs.length}</span></h2><p class="small muted">${esc(hint)}</p>
+${rs.length ? `<ul class="owner-apps">${rs.map(row).join('')}</ul>` : '<p class="small muted">None yet.</p>'}</section>`; }).join('')}
 <p class="small muted">Install this page on your phone: Chrome menu ⋮ › <b>Add to Home screen</b> (or <b>Install app</b>). It's only useful to you: other people can't sign in to it.</p>`;
     counts();
     familyIcons();
@@ -83,7 +99,7 @@ ${r.icon ? `<img class="icon" src="${esc(r.icon)}" alt="" width="48" height="48"
   async function familyIcons() {
     const t = await token();
     for (const el of root.querySelectorAll('.owner-noicon')) {
-      const id = el.closest('li').querySelector('[data-count]')?.dataset.count;
+      const id = el.dataset.icon;
       try {
         const r = await fetch(`${FN}?action=file&app=${encodeURIComponent(id)}&path=icon`, { headers: { Authorization: `Bearer ${t}`, apikey: KEY } });
         if (!r.ok) continue;
@@ -113,6 +129,12 @@ ${r.icon ? `<img class="icon" src="${esc(r.icon)}" alt="" width="48" height="48"
       const res = await fetch(`${FN}?action=catalog`, { headers: { Authorization: `Bearer ${t}`, apikey: KEY } });
       const j = await res.json();
       if (!j.owner) { root.innerHTML = `<div class="card family-signin"><p>This page is only for the owner. You're signed in as <b>${esc(j.email || '')}</b>.</p><p><a href="/">Go to Zenith Gen Orbit</a></p><button type="button" class="btn btn-ghost" data-act="out">Sign out</button></div>`; return; }
+      // Family and "Just me" apps come from the private repository, through the Family server.
+      for (const a of j.apps || []) {
+        if (data.rows.some(r => r.id === a.id)) continue;
+        const latest = (a.releases || []).find(r => r.status === 'live');
+        data.rows.push({ id: a.id, name: a.name, group: a.visibility === 'owner' ? 'Just me' : 'Family & friends', url: `${location.origin}/family/#${a.id}`, version: latest?.version || '', category: a.category || '', icon: '', files: [], self: {} });
+      }
       view(j.email);
     } catch {
       root.innerHTML = '<p class="family-notice">Couldn\'t reach the server. Check your connection and try again.</p>';

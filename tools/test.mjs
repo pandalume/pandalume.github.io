@@ -108,6 +108,14 @@ t('old address: feeds copied exactly, pages forward', () => {
   assert.ok(fs.readFileSync(path.join(LEG, 'apps/bambowl/index.html'), 'utf8').includes(`url=${site.baseUrl}/apps/bambowl/`));
   assert.ok(fs.readFileSync(path.join(LEG, '404.html'), 'utf8').includes('location.replace'));
 });
+t('events: current ones shown, ended ones hidden', () => {
+  const h = html('apps/bambowl/index.html');
+  assert.ok(h.includes('Autumn recipe challenge') && !h.includes('Old event'));
+});
+t('"just me" apps leave nothing on the public site', () => {
+  assert.ok(!fs.existsSync(path.join(OUT, 'apps/only-me')));
+  for (const f of walk(OUT).filter(f => /\.(html|json|xml)$/.test(f))) assert.ok(!fs.readFileSync(f, 'utf8').includes('Only Me Tool'), f);
+});
 t('no third-party scripts, styles or fonts', () => {
   for (const f of walk(OUT).filter(f => f.endsWith('.html'))) {
     const h = fs.readFileSync(f, 'utf8');

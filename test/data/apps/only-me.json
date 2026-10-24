@@ -1,0 +1,12 @@
+{
+  "id": "only-me",
+  "name": "Only Me Tool",
+  "order": 10,
+  "visibility": "owner",
+  "tagline": "Just for the owner.",
+  "platforms": {
+    "windows": {
+      "requires": "Windows 10 or 11"
+    }
+  }
+}

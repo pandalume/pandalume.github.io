@@ -45,7 +45,13 @@ export function validate(site, apps) {
     if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(a.id || '')) { w('id must be lowercase-with-dashes'); continue; }
     if (ids.has(a.id)) w('duplicate id'); ids.add(a.id);
     if (path.basename(a._file) !== a.id + '.json') w('file name must be <id>.json');
-    if (!['public', 'unlisted', 'family', 'private'].includes(a.visibility)) w('visibility must be public, unlisted, family or private');
+    if (!['public', 'unlisted', 'family', 'owner', 'private'].includes(a.visibility)) w('visibility must be public, unlisted, family, owner or private');
+    if (a.kind && !['app', 'game'].includes(a.kind)) w('kind must be app or game');
+    for (const ev of a.events || []) {
+      if (!ev.title) w('each event needs a "title"');
+      for (const k of ['starts', 'ends']) if (ev[k] && !/^\d{4}-\d{2}-\d{2}$/.test(ev[k])) w(`event "${ev.title}": ${k} must be YYYY-MM-DD`);
+      if (ev.url && !https(ev.url) && !String(ev.url).startsWith('/')) w(`event "${ev.title}": url must be https or a site path`);
+    }
     if (!a.name || !a.tagline) w('name and tagline are required');
     for (const p of Object.keys(a.platforms || {})) if (!PLATFORMS[p]) w(`unknown platform ${p}`);
     if (a.shotStyle && !['clean', 'phone'].includes(a.shotStyle)) w('shotStyle must be clean or phone');
@@ -133,3 +139,9 @@ export function timeline(apps) {
   return apps.flatMap(app => (app.releases || []).filter(r => r.status === 'live').map(r => ({ app, r })))
     .sort((a, b) => b.r.date.localeCompare(a.r.date) || cmpVersion(b.r.version, a.r.version));
 }
+
+/** Events and offers showing today: started (or no start) and not yet ended (or no end). */
+export function currentEvents(app, today = new Date().toISOString().slice(0, 10)) {
+  return (app.events || []).filter(e => (!e.starts || e.starts <= today) && (!e.ends || e.ends >= today));
+}
+
