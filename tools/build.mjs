@@ -235,6 +235,9 @@ ${items.map(({ app, r }) => `  <entry>
 }
 
 // ---------- app page ----------
+// Chrome asks before saving any APK from outside the Play Store; without this hint people miss it
+// and the download sits at 100% forever.
+const APK_HINT = `<p class="small dl-hint">Chrome will ask <b>"File might be harmful"</b> because the app isn't from the Play Store. Tap <b>Download anyway</b>, then open the file to install.</p>`;
 function fileButton(f, primary) {
   return `<a class="btn ${primary ? 'btn-iri' : 'btn-ghost'}" href="${esc(f.url)}" data-kind="${f.kind}">
   <span>${KIND_LABEL[f.kind]}</span><small>${mb(f.size)} · ${KIND_HINT[f.kind]}</small></a>`;
@@ -301,7 +304,7 @@ function ownerPage() {
 
 function appPage(app) {
   if (app.visibility === 'family') return familyStubPage(app);
-  const plats = Object.keys(app.platforms);
+  const plats = Object.keys(app.platforms).sort((x, y) => (x === 'android' ? 0 : 1) - (y === 'android' ? 0 : 1));   // Android first: most visitors are on phones
   const latestAny = (app.releases || []).find(r => r.status === 'live');
   const total = appCount(app);
   const primaryFile = p => { const r = latestFor(app, p); return r && r.files.find(f => KINDS[f.kind] === p); };
@@ -314,6 +317,7 @@ function appPage(app) {
   <div class="dl-head"><h3>${PLATFORMS[p]}</h3><span class="muted small">${esc(info.requires || '')}</span></div>
   ${r ? `<p class="ver">Version ${esc(r.version)} · ${date(r.date)}</p>
   <div class="dl-body"><div class="dl-main"><div class="btns">${files.map((f, i) => fileButton(f, i === 0)).join('')}</div>
+  ${p === 'android' ? APK_HINT : ''}
   <p class="notes"><b>What's new:</b> ${esc(r.notes)}</p>
   ${hashes(files)}
   <p class="small"><a href="/install/#${p}">How to install on ${PLATFORMS[p]}</a> · <button type="button" class="linkish copy" data-copy="${short}" data-done="Link copied">Copy download link</button></p></div>
@@ -354,7 +358,7 @@ ${(app.tags || []).length ? `<div class="chips tags">${app.tags.map(t => `<span 
     bin: 'M6 7h12l-1 14H7zm3-4h6l1 2h4v2H4V5h4z',
     info: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2zm0-8h-2V7h2z'
   };
-  const listNames = xs => xs.length <= 2 ? xs.join(' and ') : `${xs.slice(0, 2).join(', ')} and ${xs.length - 2} more`;
+  const listNames = xs => xs.length <= 2 ? xs.join(' · ') : `${xs.slice(0, 2).join(' · ')} and ${xs.length - 2} more`;
   const short = t => t.split(/[,(]/)[0].trim();
   const safety = ds ? `<section><h2 class="sec">Data safety</h2>
 <p class="muted small">What ${esc(app.name)} collects and where it goes, in short. The <a href="/apps/${app.id}/privacy/">privacy policy</a> has the details.</p>

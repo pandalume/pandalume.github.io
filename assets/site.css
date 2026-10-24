@@ -270,3 +270,19 @@ pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px
 .owner-site:hover, .owner-apps li:hover { border-color: var(--purple); }
 .owner-acts { position: relative; z-index: 1; flex-wrap: wrap; }
 .owner-site { align-content: space-between; }
+
+/* downloads on phones: Android first and main, both panels compact, buttons still bright */
+.dl-hint { margin: 10px 0 0; padding: 8px 10px; border-radius: 10px; background: rgba(115, 230, 216, .08); border: 1px solid rgba(115, 230, 216, .25); }
+@media (max-width: 760px) {
+  .dls { gap: 10px; margin-top: 14px; }
+  .dls .dl { padding: 14px 16px; }
+  .dls .dl-head h3 { font-size: 17px; }
+  .dls .ver { margin: 2px 0 8px; font-size: 13px; }
+  .dls .btn { padding: 8px 14px; font-size: 15px; border-radius: 10px; }
+  .dls .btn small { font-size: 11px; }
+  .dls .btns { gap: 6px; }
+  .dls .notes { font-size: 13px; margin: 10px 0 4px; }
+  .dls .dl[data-platform="windows"] .notes, .dls .dl[data-platform="windows"] .hash { display: none; }
+  .dls .dl[data-platform="windows"] .btns { flex-direction: row; }
+  .dls .dl[data-platform="windows"] .btn { flex: 1; }
+}

@@ -106,15 +106,16 @@ ${mine.length ? `<section><div class="sec-row"><h2 class="sec">Just me <span cla
 
   // One app, laid out like its page on the main site.
   function detailView(app) {
-    const plats = Object.keys(app.platforms || {});
+    const plats = Object.keys(app.platforms || {}).sort((x, y) => (x === 'android' ? 0 : 1) - (y === 'android' ? 0 : 1));
     const latestAny = (app.releases || []).find(r => r.status === 'live');
     const facts = [latestAny && ['Version', latestAny.version], latestAny && ['Updated', date(latestAny.date)],
       ...plats.map(p => app.platforms[p].requires && [plats.length > 1 ? PLAT[p] : 'Requires', app.platforms[p].requires.replace(' or newer', '+')])].filter(Boolean);
     const panels = plats.map(p => {
       const r = latestFor(app, p), files = r ? r.files.filter(f => KINDS[f.kind] === p) : [];
-      return `<div class="card dl"><div class="dl-head"><h3>${PLAT[p]}</h3><span class="muted small">${esc(app.platforms[p].requires || '')}</span></div>
+      return `<div class="card dl" data-platform="${p}"><div class="dl-head"><h3>${PLAT[p]}</h3><span class="muted small">${esc(app.platforms[p].requires || '')}</span></div>
 ${r ? `<p class="ver">Version ${esc(r.version)} · ${date(r.date)}</p>
 <div class="btns">${files.map((f, i) => `<button type="button" class="btn ${i ? 'btn-ghost' : 'btn-iri'}" data-act="dl" data-app="${esc(app.id)}" data-name="${esc(f.name)}"><span>${LABEL[f.kind]}</span><small>${mb(f.size)} · ${HINT[f.kind]}</small></button>`).join('')}</div>
+${p === 'android' ? '<p class="small dl-hint">Chrome will ask <b>"File might be harmful"</b> because the app isn\'t from the Play Store. Tap <b>Download anyway</b>, then open the file to install.</p>' : ''}
 <p class="notes"><b>What's new:</b> ${esc(r.notes)}</p>
 <p class="small"><a href="/install/#${p}">How to install on ${PLAT[p]}</a></p>` : '<p class="muted">No download yet. Check back soon.</p>'}</div>`;
     }).join('');
