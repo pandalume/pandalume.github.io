@@ -119,6 +119,35 @@ const releaseRow = ({ app, r }) => `<li><a class="upd" href="/apps/${app.id}/#${
 
 const chips = app => Object.keys(app.platforms).map(p => `<span class="chip">${PLATFORMS[p]}</span>`).join('');
 
+// Android permissions in plain words (what Play shows under "App permissions"). Internal ones are hidden.
+const PERMS = {
+  INTERNET: ['Full network access', 'Connect to the internet'],
+  ACCESS_NETWORK_STATE: ['View network connections', 'See whether you are online'],
+  ACCESS_WIFI_STATE: ['View Wi-Fi connections', 'See Wi-Fi status'],
+  POST_NOTIFICATIONS: ['Show notifications', ''],
+  VIBRATE: ['Control vibration', ''],
+  WAKE_LOCK: ['Prevent phone from sleeping', 'Briefly, while finishing a task'],
+  RECEIVE_BOOT_COMPLETED: ['Run at startup', 'To restore reminders after a restart'],
+  RECORD_AUDIO: ['Record audio', 'Only when you start a recording'],
+  MODIFY_AUDIO_SETTINGS: ['Change audio settings', ''],
+  CAMERA: ['Take pictures and videos', 'Only when you use the camera'],
+  READ_MEDIA_IMAGES: ['Read photos', 'Only the ones you pick'],
+  READ_EXTERNAL_STORAGE: ['Read storage', 'Older Android versions only'],
+  WRITE_EXTERNAL_STORAGE: ['Modify storage', 'Older Android versions only'],
+  USE_EXACT_ALARM: ['Set exact alarms', 'For reminders at the right time'],
+  SCHEDULE_EXACT_ALARM: ['Schedule exact alarms', 'For reminders at the right time'],
+  USE_BIOMETRIC: ['Use biometric hardware', 'Unlock with your fingerprint or face'],
+  USE_FINGERPRINT: ['Use fingerprint hardware', 'Unlock with your fingerprint'],
+  FOREGROUND_SERVICE: ['Run in the foreground', ''],
+  REQUEST_INSTALL_PACKAGES: ['Request installing updates', 'To install its own updates when you tap Update'],
+  'c2dm.permission.RECEIVE': ['Receive data from the internet', 'For push notifications'],
+};
+function permName(full) {
+  if (/DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION$/.test(full)) return null;
+  const key = full.replace(/^android\.permission\./, '').replace(/^com\.google\.android\./, '');
+  return PERMS[key] || [key.replace(/_/g, ' ').toLowerCase().replace(/^./, c => c.toUpperCase()), ''];
+}
+
 // ---------- home ----------
 function home() {
   const plats = [...new Set(listed.flatMap(a => Object.keys(a.platforms)))];
@@ -300,7 +329,8 @@ function appPage(app) {
     `<button type="button" class="shot${s.wide ? ' wide' : ''}" aria-label="Enlarge screenshot ${i + 1}"><img src="/apps/${app.id}/shots/${esc(s.file)}" alt="${esc(s.caption || `${app.name} screenshot ${i + 1}`)}" loading="lazy"></button>`).join('')}</div></section>` : '';
 
   const about = `<section><h2 class="sec">About</h2>${(app.description || []).map(p => `<p>${esc(p)}</p>`).join('')}
-${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}</section>`;
+${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
+${(app.tags || []).length ? `<div class="chips tags">${app.tags.map(t => `<span class="chip ghost">${esc(t)}</span>`).join('')}</div>` : ''}</section>`;
 
   // Data safety, shaped like Google Play's: a short summary, details on tap, the policy for the full story.
   const ds = app.dataSafety;
@@ -323,11 +353,41 @@ ${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>$
 ${ds.encryptedInTransit ? `<div class="ds-row">${ico(I.lock)}<div><b>Data is encrypted in transit</b></div></div>` : ''}
 <div class="ds-row">${ico(I.bin)}<div><b>${ds.deletion ? 'You can delete your data' : 'No account data to delete'}</b>${ds.deletion ? `<span>${esc(ds.deletion)}</span>` : ''}</div></div>
 ${(ds.extras || []).map(x => `<div class="ds-row">${ico(I.info)}<div><span>${esc(x)}</span></div></div>`).join('')}
-${(ds.collected?.length || ds.sent?.length) ? `<details class="ds-more"><summary>See details</summary>
-${ds.collected?.length ? `<h3>Data collected</h3><ul>${ds.collected.map(c => `<li><b>${esc(c.data)}</b><span>${esc(c.why)}${c.optional ? ' · optional' : ''}</span></li>`).join('')}</ul>` : ''}
-${ds.sent?.length ? `<h3>Sent to other services</h3><ul>${ds.sent.map(x => `<li><b>${esc(x.data)}</b><span>to ${esc(x.to)}: ${esc(x.why)}</span></li>`).join('')}</ul>` : ''}
-</details>` : ''}
+<details class="ds-more"><summary>See details</summary>
+<h3>Data shared</h3><p class="small muted">${esc(app.name)} doesn't sell your data or share it with other companies for their own use.${ds.sent?.length ? ' It sends the data below to another service only to do what you asked, when you use that feature:' : ''}</p>
+${ds.sent?.length ? `<ul>${ds.sent.map(x => `<li><b>${esc(x.data)}</b><span>to ${esc(x.to.replace(/^(A|The) /, m => m.toLowerCase()))}: ${esc(x.why)}</span></li>`).join('')}</ul>` : ''}
+<h3>Data collected</h3>${ds.collected?.length ? `<ul>${ds.collected.map(c => `<li><b>${esc(c.data)}</b><span>${esc(c.why)}${c.optional ? ' · optional' : ' · required'}</span></li>`).join('')}</ul>` : '<p class="small muted">None.</p>'}
+<h3>Security practices</h3><ul>${ds.encryptedInTransit ? '<li><b>Data is encrypted in transit</b><span>Sent over a secure (HTTPS) connection</span></li>' : ''}<li><b>No ads, analytics or tracking</b><span>Nothing in the app reports what you do</span></li></ul>
+<h3>Data deletion</h3><p class="small muted">${ds.deletion ? esc(ds.deletion) : 'Nothing is stored outside your device, so there is nothing to delete.'}</p>
+<p class="small">For everything else, see the <a href="/apps/${app.id}/privacy/">privacy policy</a>.</p>
+</details>
 </div></section>` : '';
+
+  // App info, like Play's "About this app" details: facts only, all from the release data.
+  const firstRel = [...(app.releases || [])].reverse().find(r => r.status === 'live');
+  const apkRel = latestFor(app, 'android');
+  const perms = (apkRel?.permissions || []).map(permName).filter(Boolean);
+  const infoRows = [
+    latestAny && ['Version', plats.map(p => latestFor(app, p)?.version).filter((v, i, a) => v && a.indexOf(v) === i).join(' / ')],
+    latestAny && ['Updated on', date(latestAny.date)],
+    total && ['Downloads', bucket(total)],
+    ...plats.map(p => primaryFile(p) && [plats.length > 1 ? `Download size (${PLATFORMS[p]})` : 'Download size', mb(primaryFile(p).size)]),
+    ...plats.map(p => app.platforms[p].requires && [plats.length > 1 ? `Requires (${PLATFORMS[p]})` : 'Requires', app.platforms[p].requires]),
+    ['Ads', app.ads ? 'Contains ads' : 'None'],
+    ['In-app purchases', app.purchases ? esc(app.purchases === true ? 'Yes' : app.purchases) : 'None'],
+    ['Offered by', app.developer || site.developer],
+    firstRel && ['Released on', date(firstRel.date)]
+  ].filter(Boolean);
+  const appInfo = `<section><h2 class="sec">App info</h2><dl class="card info-grid">${infoRows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+${perms.length ? `<details class="ds-more perms"><summary>App permissions (Android, ${perms.length})</summary><ul>${perms.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d)}</span></li>`).join('')}</ul></details>` : ''}</section>`;
+  const support = `<section><h2 class="sec">App support</h2><div class="card support">
+<a href="mailto:${esc(site.contact)}?subject=${encodeURIComponent(app.name)}"><b>Email</b><span>${esc(site.contact)}</span></a>
+<a href="/apps/${app.id}/privacy/"><b>Privacy policy</b><span>What ${esc(app.name)} collects and why</span></a>
+<a href="/apps/${app.id}/terms/"><b>Terms of use</b><span>The rules for using ${esc(app.name)}</span></a>
+<a href="/install/"><b>Install help</b><span>Installing and updating outside an app store</span></a>
+<div><b>About the developer</b><span>${esc(site.developer)}, ${esc(site.developerAbout)}.</span></div></div></section>`;
+  const others = listed.filter(a => a.id !== app.id);
+  const moreBy = others.length ? `<section><h2 class="sec">More by ${esc(site.developer)}</h2><div class="grid">${others.slice(0, 6).map(a => `<a class="card app-card" href="/apps/${a.id}/"><img class="icon" src="${iconOf(a.id)}" alt="" width="64" height="64"><div><h3>${esc(a.name)}</h3><p class="muted small">${esc(a.category || '')}</p></div><p class="tag">${esc(a.tagline)}</p></a>`).join('')}</div></section>` : '';
 
   // Only the newest version per platform is downloadable; older entries show their notes only.
   const current = new Set(plats.map(p => latestFor(app, p)).filter(Boolean));
@@ -354,6 +414,7 @@ ${rel.length > SHOW ? `<details class="older"><summary>Show ${rel.length - SHOW}
     body: `<section class="app-head">
   <img class="icon big" src="${iconOf(app.id)}" alt="" width="96" height="96">
   <div class="app-title"><h1>${esc(app.name)}</h1><p class="by"><img src="/assets/pandalume-mark.webp" alt="" width="18" height="18">by <b>${esc(app.developer || site.developer)}</b> <span class="muted">· Published on ${esc(site.name)}</span></p><p class="tag">${esc(app.tagline)}</p>
+  <p class="small muted trust">${app.ads ? 'Contains ads' : 'No ads'} · ${app.purchases ? 'In-app purchases' : 'No in-app purchases'} · No tracking</p>
   <div class="chips">${chips(app)}${app.category ? `<span class="chip ghost">${esc(app.category)}</span>` : ''}</div></div>
   <button type="button" class="share-btn" data-share-url="${appUrl(site, app)}" data-share-title="${esc(app.name)}" data-share-text="${esc(app.tagline)}">Share</button>
 </section>
@@ -363,7 +424,9 @@ ${shots}
 ${about}
 ${safety}
 ${versions}
-<p class="small"><a href="/apps/${app.id}/privacy/">${esc(app.name)} privacy policy</a> · <a href="/apps/${app.id}/terms/">Terms of use</a></p>
+${appInfo}
+${support}
+${moreBy}
 ${bar}`
   });
 }

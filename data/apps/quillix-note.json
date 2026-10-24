@@ -9,6 +9,12 @@
     "Quillix Note is a notebook for typed notes and handwriting. Your notes stay on your device, and sync between your devices when you sign in with Google."
   ],
   "features": [],
+  "tags": [
+    "Notes",
+    "Handwriting",
+    "Voice notes",
+    "Sync"
+  ],
   "screenshots": [],
   "dataSafety": {
     "collected": [
@@ -79,6 +85,16 @@
           "sha256": "d4e898cf1d57f37be451715a1efc90ff4276fe2249271381e015643140bd7cc5",
           "selfDownloads": 1
         }
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     }
   ],

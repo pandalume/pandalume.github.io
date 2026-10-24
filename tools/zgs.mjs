@@ -162,7 +162,9 @@ function inspectApk(file) {
   if (v.status !== 0) stop(`${path.basename(file)} failed signature verification:\n${v.stderr || v.stdout}`);
   const certs = [...v.stdout.matchAll(/certificate SHA-256 digest: ([0-9a-f]{64})/g)].map(x => x[1]);
   if (!certs.length) stop(`No signing certificate found in ${path.basename(file)}.`);
-  return { package: m[1], code: Number(m[2]), version: m[3], certs: [...new Set(certs)] };
+  const pd = run(t.aapt2, ['dump', 'permissions', file]);
+  const permissions = [...new Set([...(pd.stdout || '').matchAll(/uses-permission: name='([^']+)'/g)].map(x => x[1]))];
+  return { package: m[1], code: Number(m[2]), version: m[3], certs: [...new Set(certs)], permissions };
 }
 const EXE = /^(.*?)[-_ ](Setup|Portable)[-_ ]v?(\d+(?:\.\d+){1,3})(?:-x64)?\.exe$/i;
 
@@ -182,7 +184,7 @@ function findBuild(app, folder) {
   if (!picked.length) stop(`No ${only || ''} build for ${app.name} in ${folder} (looked for .apk, *-Setup-<ver>.exe, *-Portable-<ver>.exe).`);
   for (const k of ['apk', 'setup', 'portable']) if (picked.filter(f => f.kind === k).length > 1) stop(`More than one ${k} file in ${folder}. Leave only the build to publish.`);
 
-  let code = null;
+  let code = null, permissions = null;
   for (const f of picked) {
     f.size = fs.statSync(f.full).size;
     if (f.size < 1024) stop(`${f.name} is only ${f.size} bytes.`);
@@ -193,12 +195,12 @@ function findBuild(app, folder) {
       if (info.package !== want.package) stop(`${f.name} is package ${info.package}, expected ${want.package}.`);
       if (info.certs.length !== 1 || info.certs[0] !== want.certSha256)
         stop(`${f.name} is signed with the wrong key.\n  signed with: ${info.certs.join(', ')}\n  expected:    ${want.certSha256}\nIs this a debug build? Build the release APK with the release keystore.`);
-      f.version = info.version; code = info.code;
+      f.version = info.version; code = info.code; permissions = info.permissions;
     } else if (head.subarray(0, 2).toString() !== 'MZ') stop(`${f.name} is not a Windows program.`);
   }
   const versions = [...new Set(picked.map(f => f.version))];
   if (versions.length > 1) stop(`The files have different versions (${picked.map(f => `${f.name}=${f.version}`).join(', ')}). Publish one platform at a time with --platform.`);
-  return { version: versions[0], code, files: picked };
+  return { version: versions[0], code, permissions, files: picked };
 }
 
 // ---------- family repository (private) ----------
@@ -234,7 +236,7 @@ async function pushFamilyFiles(id, L, label) {
 // An app chat can set up (and later update) the app's page without the hub chat by keeping a
 // "Store listing" folder next to the builds:  listing.json, icon, screenshots\, screenshots-windows\,
 // privacy.html, terms.html. Studio Standards\README.md explains each file.
-const LISTING = 'Store listing', IMG = /\.(webp|png|jpe?g)$/i, TEXT = ['name', 'tagline', 'category', 'description', 'features', 'contentNoun', 'shotStyle', 'dataSafety'];
+const LISTING = 'Store listing', IMG = /\.(webp|png|jpe?g)$/i, TEXT = ['name', 'tagline', 'category', 'description', 'features', 'contentNoun', 'shotStyle', 'dataSafety', 'tags', 'ads', 'purchases'];
 const hashBuf = b => crypto.createHash('sha256').update(b).digest('hex');
 const appDir = id => path.join(ROOT, 'content', 'apps', id);
 
@@ -403,7 +405,7 @@ async function publish(newApp = null) {
   }
   const date = backfill ? (flags.date || stop('--backfill needs --date YYYY-MM-DD')) : today();
 
-  const release = { version: build.version, ...(build.code != null && { code: build.code }), date, status: 'live', notes, ...(changes.length && { changes }), files: [] };
+  const release = { version: build.version, ...(build.code != null && { code: build.code }), date, status: 'live', notes, ...(changes.length && { changes }), ...(build.permissions && { permissions: build.permissions }), files: [] };
   // Check the finished data would be valid *before* touching GitHub.
   const preview = [...all, { ...release, files: build.files.map(f => ({ kind: f.kind, name: f.upload, url: 'https://example.invalid/x', size: f.size, sha256: f.sha256 })) }]
     .sort((a, b) => cmpVersion(b.version, a.version));

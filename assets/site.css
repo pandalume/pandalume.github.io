@@ -237,3 +237,17 @@ pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px
 .owner-qr-card svg { width: 260px; height: 260px; }
 .owner-qr-card .muted { color: #555; }
 .owner-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--bg2); border: 1px solid var(--line2); padding: 8px 16px; border-radius: 99px; z-index: 50; }
+
+/* app info, support (like Play's details) */
+.trust { margin: 4px 0 8px; }
+.tags { margin-top: 14px; }
+.info-grid { display: grid; grid-template-columns: 1fr; gap: 0; margin: 0; padding: 4px 18px; }
+.info-grid div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.info-grid div:last-child { border-bottom: 0; }
+.info-grid dt { color: var(--muted); }
+.info-grid dd { margin: 0; text-align: right; }
+.perms { margin-top: 12px; }
+.support { display: grid; gap: 4px; padding: 8px 18px; }
+.support a, .support div { display: grid; gap: 2px; padding: 10px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--text); }
+.support > :last-child { border-bottom: 0; }
+.support span { color: var(--muted); font-size: 14px; }

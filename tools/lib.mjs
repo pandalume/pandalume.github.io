@@ -76,6 +76,7 @@ export function validate(site, apps) {
         if (!https(f.url)) rv(`file ${f.name}: url must be https`);
         if (!/^[0-9a-f]{64}$/.test(f.sha256 || '')) rv(`file ${f.name}: sha256 missing`);
         if (!(f.size > 0)) rv(`file ${f.name}: size missing`);
+        if (r.permissions != null && !(Array.isArray(r.permissions) && r.permissions.every(x => typeof x === 'string'))) rv('permissions must be a list of permission names');
         if (f.selfDownloads != null && !(Number.isInteger(f.selfDownloads) && f.selfDownloads >= 0)) rv(`file ${f.name}: selfDownloads must be a whole number`);
       }
       const apk = r.files?.find(f => f.kind === 'apk');

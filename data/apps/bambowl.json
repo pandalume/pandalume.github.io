@@ -17,6 +17,12 @@
     "Optional AI tidy-up for messy recipe text",
     "Friends: share recipes and chat"
   ],
+  "tags": [
+    "Recipes",
+    "Meal planning",
+    "Grocery list",
+    "Cooking"
+  ],
   "screenshots": [
     "1.webp",
     "2.webp",
@@ -99,6 +105,14 @@
           "sha256": "fc84bb28a669af3cbbf951b5f2bec519104c8a34acf2d2d1c84e7292c676b33c",
           "selfDownloads": 1
         }
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "com.google.android.c2dm.permission.RECEIVE"
       ]
     },
     {
