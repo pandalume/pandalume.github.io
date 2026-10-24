@@ -12,7 +12,16 @@ const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'zg-test-'));
 let passed = 0;
 const t = (name, fn) => { try { fn(); passed++; console.log('  ok  ' + name); } catch (e) { console.error('  FAIL ' + name + '\n       ' + e.message); process.exitCode = 1; } };
 
-execFileSync(process.execPath, [path.join(ROOT, 'tools/build.mjs'), '--no-counts', '--data', DATA, '--out', OUT], { stdio: 'pipe' });
+// The sample data must not depend on the real apps' files (a real publish renames screenshots, swaps icons…):
+// build from a copy of content/ with a placeholder for every image the sample data mentions.
+const CONTENT = fs.mkdtempSync(path.join(os.tmpdir(), 'zg-content-'));
+fs.cpSync(path.join(ROOT, 'content'), CONTENT, { recursive: true });
+for (const f of fs.readdirSync(path.join(DATA, 'apps')).filter(f => f.endsWith('.json'))) {
+  const a = readJson(path.join(DATA, 'apps', f)), dir = path.join(CONTENT, 'apps', a.id);
+  fs.mkdirSync(path.join(dir, 'shots'), { recursive: true });
+  for (const s of a.screenshots || []) { const p = path.join(dir, 'shots', typeof s === 'string' ? s : s.file); if (!fs.existsSync(p)) fs.writeFileSync(p, ''); }
+}
+execFileSync(process.execPath, [path.join(ROOT, 'tools/build.mjs'), '--no-counts', '--data', DATA, '--out', OUT, '--content', CONTENT], { stdio: 'pipe' });
 const out = rel => path.join(OUT, rel);
 const site = readJson(path.join(DATA, 'site.json'));
 const appsData = id => readJson(path.join(DATA, 'apps', id + '.json'));
@@ -115,6 +124,18 @@ t('events: current ones shown, ended ones hidden', () => {
 t('"just me" apps leave nothing on the public site', () => {
   assert.ok(!fs.existsSync(path.join(OUT, 'apps/only-me')));
   for (const f of walk(OUT).filter(f => /\.(html|json|xml)$/.test(f))) assert.ok(!fs.readFileSync(f, 'utf8').includes('Only Me Tool'), f);
+});
+t('the real site (data/) builds and every link and image in it resolves', () => {
+  const REAL = fs.mkdtempSync(path.join(os.tmpdir(), 'zg-real-'));
+  execFileSync(process.execPath, [path.join(ROOT, 'tools/build.mjs'), '--no-counts', '--out', REAL], { stdio: 'pipe' });
+  const bad = [];
+  for (const f of walk(REAL).filter(f => f.endsWith('.html')))
+    for (const [, u] of fs.readFileSync(f, 'utf8').matchAll(/(?:href|src)="(\/[^"#?]*)/g)) {
+      const p = path.join(REAL, decodeURIComponent(u));
+      if (!(fs.existsSync(p) && (fs.statSync(p).isFile() || fs.existsSync(path.join(p, 'index.html'))))) bad.push(`${path.relative(REAL, f)} → ${u}`);
+    }
+  fs.rmSync(REAL, { recursive: true, force: true });
+  assert.deepEqual(bad, []);
 });
 t('no third-party scripts, styles or fonts', () => {
   for (const f of walk(OUT).filter(f => f.endsWith('.html'))) {

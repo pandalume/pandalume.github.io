@@ -14,7 +14,7 @@ const args = process.argv.slice(2);
 const opt = n => { const i = args.indexOf(n); return i < 0 ? null : args[i + 1]; };
 const DATA = path.resolve(opt('--data') || path.join(ROOT, 'data'));
 const OUT = path.resolve(opt('--out') || path.join(ROOT, 'dist'));
-const CONTENT = path.join(ROOT, 'content');
+const CONTENT = path.resolve(opt('--content') || path.join(ROOT, 'content'));
 
 const { site, apps: allApps } = loadData(DATA);
 const apps = allApps.filter(a => a.visibility !== 'private' && a.visibility !== 'owner');   // private and "just me" apps get nothing public

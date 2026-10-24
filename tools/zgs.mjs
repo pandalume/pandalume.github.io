@@ -495,6 +495,16 @@ async function publish(newApp = null) {
     else git('checkout', '--', fresh._file, path.join('content', 'apps', app.id));
     stop(e.message);
   }
+  // Same checks the website runs before it rebuilds: if they fail here, nothing is pushed, so the site can't
+  // end up silently stuck on the old version.
+  say('  checking the website builds with this release…');
+  const chk = run(process.execPath, [path.join(ROOT, 'tools', 'test.mjs')]);
+  if (chk.status !== 0) {
+    if (created) { fs.rmSync(fresh._file, { force: true }); fs.rmSync(appDir(app.id), { recursive: true, force: true }); git('checkout', '--', 'tools/zgs.config.json'); }
+    else git('checkout', '--', ...touched);
+    const fails = (chk.stdout + chk.stderr).split('\n').filter(l => /FAIL|→|Error/.test(l)).slice(0, 8).join('\n');
+    stop(`The website would not build with this release, so nothing was pushed. Your uploaded files are kept: run Publish again once it's fixed (ask the hub chat).\n${fails}`);
+  }
   git('add', '-A', '--', ...touched);
   if (git('status', '--porcelain', '--', ...touched)) {
     git('commit', '--quiet', '-m', `${created ? 'Add and publish' : backfill ? 'Add' : 'Publish'} ${app.name} ${family ? '(family)' : build.version}`);
@@ -518,10 +528,19 @@ async function waitLive(app, build) {
   const plats = [...new Set(build.files.map(f => KINDS[f.kind]))];
   const site = SITE(), until = Date.now() + 6 * 60e3;
   process.stdout.write('  waiting for the live feed');
+  const head = git('rev-parse', 'HEAD');
+  const buildFailed = async () => {                                   // the website's own build, on GitHub
+    try {
+      const runs = await gh('GET', `/actions/runs?head_sha=${head}&per_page=5`);
+      return (runs?.workflow_runs || []).find(r => r.status === 'completed' && r.conclusion === 'failure') || null;
+    } catch { return null; }
+  };
   for (const p of plats) {
     const url = `${site.baseUrl}/api/${app.id}/${p}.json`;
     for (;;) {
       try { const res = await fetch(`${url}?t=${Date.now()}`); if (res.ok && (await res.json()).name === build.version) break; } catch { /* retry */ }
+      const failed = await buildFailed();
+      if (failed) { say(c.bad(`\n  The website build failed, so ${app.name} ${build.version} isn't showing yet. Your release is saved.`)); say(`  Details: ${failed.html_url}\n  Ask the hub chat to fix it; the site updates as soon as it's fixed, without publishing again.`); process.exitCode = 1; return; }
       if (Date.now() > until) { say(c.bad(`\n  Not live after 6 minutes. Check the "site" run under the repo's Actions tab.`)); return; }
       process.stdout.write('.'); await new Promise(r => setTimeout(r, 10e3));
     }
