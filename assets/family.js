@@ -223,7 +223,7 @@ ${apps.map(a => `<label class="chk"><input type="checkbox" name="apps" value="${
     if (b.dataset.act === 'out') signOut();
     if (b.dataset.act === 'dl') {
       const was = b.innerHTML; b.disabled = true; b.textContent = 'Starting download…';
-      try { const j = await getJson({ action: 'download', app: b.dataset.app, name: b.dataset.name }); location.href = j.url; }
+      try { const j = await getJson({ action: 'download', app: b.dataset.app, name: b.dataset.name }); (window.zgOpenDownload || (u => { location.href = u; }))(j.url); }
       catch (err) { if (err.signedOut) return start(); alert(err.message); }
       finally { setTimeout(() => { b.disabled = false; b.innerHTML = was; }, 3000); }
     }
