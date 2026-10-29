@@ -5,7 +5,7 @@
 <li><b>Updates:</b> while you are signed in, Cypher Vault checks once a day (and when you tap Check for updates) whether a newer version is available to your account. The check sends your sign-in, the app's name and your platform (Android or Windows), never your vault. When you tap Update, the new version is downloaded from GitHub and checked against its published fingerprint before it is installed.</li>
 <li><b>Website icons:</b> off unless you turn on Site icons. Then, to show a site's icon next to an entry, Cypher Vault asks Google's icon service for that website's icon, which tells Google the website's address (not your username or password).</li>
 <li><b>Breached-password check:</b> only when you run it. Cypher Vault sends only the first 5 characters of a one-way fingerprint (SHA-1 hash) of the password to the Have I Been Pwned service. The password itself never leaves your device.</li>
-<li><b>Browser extension:</b> talks only to the Cypher Vault app on the same computer. It does not send your data anywhere else.</li>
+<li><b>Browser extension:</b> talks only to the Cypher Vault app on the same computer. It does not send your data anywhere else. If you save a new login while the app is locked, the app keeps it encrypted on your computer until you unlock. If the app is closed, the extension keeps it in the browser, encrypted so that only your Cypher Vault app can open it, and hands it over the next time the app runs.</li>
 </ul>
 <h3>Services Cypher Vault uses</h3>
 <ul>
