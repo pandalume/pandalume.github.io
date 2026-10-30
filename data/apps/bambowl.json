@@ -26,7 +26,11 @@
   "screenshots": [
     "01.webp",
     "02.webp",
-    "03.webp"
+    "03.webp",
+    "04.webp",
+    "05.webp",
+    "06.webp",
+    "07.webp"
   ],
   "shotStyle": "phone",
   "dataSafety": {
@@ -89,6 +93,39 @@
     }
   },
   "releases": [
+    {
+      "version": "1.6.5",
+      "code": 12,
+      "date": "2026-10-31",
+      "status": "live",
+      "notes": "Bambowl has a new look: a crystal bowl with bamboo chopsticks.",
+      "changes": [
+        "New app icon and a new logo inside the app",
+        "Matches your phone's themed icons on Android 13 and newer",
+        "Message alerts show the new bowl",
+        "Recipe times read more clearly: hours for long cooks, and a dash when a time isn't given"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "com.google.android.c2dm.permission.RECEIVE",
+        "com.jon.bambowl.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.5.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/bambowl-1.6.5/Bambowl-1.6.5.apk",
+          "size": 8211812,
+          "sha256": "88c40c985e2366d6d1bfc16c139d83fc796b4c124b072d8ed29bf7df0730d943"
+        }
+      ]
+    },
     {
       "version": "1.6.4",
       "code": 11,
