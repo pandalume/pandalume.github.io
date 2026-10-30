@@ -10,7 +10,7 @@
     "Sign in with Google if you want your recipes on more than one phone. Everything else stays on the phone."
   ],
   "features": [
-    "Import recipes from links (recipe sites, YouTube, TikTok, Instagram, Facebook) or photos",
+    "Import recipes from links (recipe sites, YouTube, TikTok, Instagram, Facebook) or photos, with the nutrition the site publishes",
     "Cooking mode with step timers and hands-free voice control",
     "Weekly meal plan and a smart grocery list",
     "\"What can I cook?\" from what you already have",
@@ -89,6 +89,41 @@
     }
   },
   "releases": [
+    {
+      "version": "1.6.4",
+      "code": 11,
+      "date": "2026-10-30",
+      "status": "live",
+      "notes": "Recipes now show their nutrition, straight from the recipe site.",
+      "changes": [
+        "Recipes from Discover and from recipe links keep the nutrition their site publishes",
+        "Saved recipes from recipe websites get their nutrition filled in by themselves",
+        "Calories, protein, carbs and fat, plus saturated fat, fibre, sugar and sodium",
+        "Each recipe says which site the numbers come from",
+        "Numbers are only ever copied from the site, never guessed or calculated",
+        "Edit any value yourself whenever you like"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "com.google.android.c2dm.permission.RECEIVE",
+        "com.jon.bambowl.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.4.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/bambowl-1.6.4/Bambowl-1.6.4.apk",
+          "size": 8091271,
+          "sha256": "bfcdd310b5f1c86f35cd3796b8f15b88610218aac78f475a8ad6a9f92cdbd1ae"
+        }
+      ]
+    },
     {
       "version": "1.6.3",
       "code": 10,
