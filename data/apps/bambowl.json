@@ -11,7 +11,7 @@
   ],
   "features": [
     "Import recipes from links (recipe sites, YouTube, TikTok, Instagram, Facebook) or photos",
-    "Cooking mode with step timers",
+    "Cooking mode with step timers and hands-free voice control",
     "Weekly meal plan and a smart grocery list",
     "\"What can I cook?\" from what you already have",
     "Optional AI tidy-up for messy recipe text",
@@ -67,6 +67,11 @@
         "data": "Recipe text you choose",
         "to": "A third-party AI service",
         "why": "AI tidy-up, only when you tap it (approved accounts)"
+      },
+      {
+        "data": "Your voice, while hands-free cooking is on",
+        "to": "Your phone's speech service, or Google's online speech service if you switch on “Hear me from further away”",
+        "why": "Hands-free cooking commands; not recorded or kept by Bambowl"
       }
     ],
     "encryptedInTransit": true,
@@ -84,6 +89,41 @@
     }
   },
   "releases": [
+    {
+      "version": "1.6.3",
+      "code": 10,
+      "date": "2026-10-30",
+      "status": "live",
+      "notes": "Cook hands-free: Bambowl reads each step aloud and moves on when you say \"next\".",
+      "changes": [
+        "Tap the microphone in cooking mode to switch hands-free on",
+        "Say \"next\", \"back\", \"repeat\", \"ingredients\", \"start timer\" or \"stop timer\"",
+        "Finished timers are announced, so you hear them across the kitchen",
+        "Choose the reading voice and its speed in Preferences › Cooking voice",
+        "Optional \"Hear me from further away\" for a busy kitchen",
+        "It only listens while cooking mode is open, and nothing you say is recorded"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "com.google.android.c2dm.permission.RECEIVE",
+        "com.jon.bambowl.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.3.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/bambowl-1.6.3/Bambowl-1.6.3.apk",
+          "size": 8086847,
+          "sha256": "18652a4bc6cb56d9ceca6dcad7e01b98bcdd86e52082e55ea1e2e8222410bbe5"
+        }
+      ]
+    },
     {
       "version": "1.6.2",
       "code": 9,
