@@ -74,6 +74,10 @@ GitHub counts every download. zgs leaves out its own check downloads, and `zgs m
 "m" in the menu) leaves out one you made yourself. The page shows rounded figures like Google
 Play ("5+", "100+"); `zgs status` shows the exact numbers. Nothing about who downloaded is recorded.
 
+To start the counts again from 0: `zgs reset-counts` (every app) or `zgs reset-counts <app>`, or "r"
+in the menu. GitHub's own totals can't be reset, so each file's total so far is recorded as
+`selfDownloads` and left out; only downloads after that count.
+
 ## Previewing locally
 
 ```

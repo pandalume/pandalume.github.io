@@ -10,6 +10,7 @@
 //   node tools/zgs.mjs mine <app> [android|windows]   don't count a download you made yourself
 //   node tools/zgs.mjs move <app> family|owner [--delete-public]   family & friends, or "just me"
 //   node tools/zgs.mjs listing <app>     update the page (text, events, screenshots) without a release
+//   node tools/zgs.mjs reset-counts [app] start download counts from 0 (every app, or just one)
 //
 // publish: reads the newest build from Finished Apps, checks it, uploads it to a GitHub release,
 // re-downloads every file to confirm its SHA-256, and only then records the version in
@@ -771,10 +772,11 @@ async function menu() {
   const GROUP = { public: 'public', unlisted: 'link only', family: 'family', owner: 'just me' };
   rows.forEach((r, i) => say(`  ${String(i + 1).padStart(2)}. ${r.app.name.padEnd(18)} ${c.dim((GROUP[r.app.visibility] || '').padEnd(10))} live ${r.live.padEnd(9)} ${r.state}`));
   fresh.forEach((n, i) => say(`  ${String(rows.length + i + 1).padStart(2)}. ${n.id.padEnd(18)} ${c.ok('new app, not on Zenith yet')}  ${c.dim(path.relative(CONFIG.finishedApps, n.folder))}`));
-  say(c.dim('\n  s = status and download counts, l = update an app\'s page only (events, text), m = a download was me, v = check all links, q = quit'));
+  say(c.dim('\n  s = status and download counts, l = update an app\'s page only (events, text), m = a download was me, r = reset download counts, v = check all links, q = quit'));
   const pick = (await ask('\nChoose: ')).toLowerCase();
   if (pick === 's') return status();
   if (pick === 'v') return verify();
+  if (pick === 'r') { pos[0] = (await ask('Which app id? (Enter = all apps) ')).trim(); return resetCounts(); }
   if (pick === 'm') { pos[0] = await ask('Which app id (e.g. bambowl)? '); return mine(); }
   if (pick === 'l') { pos[0] = await ask('Which app id (e.g. bambowl)? '); return listingCmd(); }
   const n = Number(pick) - 1;
@@ -813,10 +815,47 @@ async function listingCmd() {
   say(c.ok(`Updated. Live in about a minute${family ? ' (the Family page shows it straight away)' : ''}.`));
 }
 
-const COMMANDS = { publish: () => publish(), pull, status, verify, mine, move, listing: listingCmd };
+/** zgs reset-counts [app]: download counts start again from 0. GitHub's own totals can't be reset, so the
+ *  current total of every file becomes its "selfDownloads" (left out of the count), in both repositories. */
+async function resetCounts() {
+  const apps = pos[0] ? [appById(pos[0])] : DATA().apps;
+  const all = async api => {
+    const out = {};
+    for (let p = 1; p < 20; p++) {
+      const rel = (await gh('GET', api(`/releases?per_page=100&page=${p}`))) || [];
+      for (const r of rel) for (const a of r.assets) { out[a.browser_download_url] = a.download_count; out[a.url] = a.download_count; }
+      if (rel.length < 100) break;
+    }
+    return out;
+  };
+  const counts = await all(p => p);
+  if (apps.some(a => PRIVATE_REPO(a.visibility))) Object.assign(counts, await all(FAPI));
+  const zero = raw => { let n = 0; for (const r of raw.releases || []) for (const f of r.files) if (counts[f.url] != null) { n += Math.max(0, counts[f.url] - (f.selfDownloads || 0)); f.selfDownloads = counts[f.url]; } return n; };
+  say(c.b(`\nStart download counts from 0 for: ${apps.map(a => a.name).join(', ')}`));
+  if (!(await confirm('Go ahead? (GitHub keeps its own totals; Zenith just stops counting what came before now)'))) stop('Cancelled.');
+  git('pull', '--ff-only', '--quiet'); _data = null;
+  const changed = [];
+  for (const app0 of apps.map(a => appById(a.id))) {
+    if (PRIVATE_REPO(app0.visibility)) {
+      const fam = await familyApp(app0), raw = Object.fromEntries(Object.entries(fam).filter(([k]) => k !== '_file'));
+      const was = zero(raw);
+      await fPut(`apps/${app0.id}.json`, Buffer.from(JSON.stringify(raw, null, 2) + '\n'), `${app0.name}: download count starts from 0`);
+      say(`  ${app0.name.padEnd(18)} ${was} → 0 ${c.dim('(family)')}`);
+    } else {
+      const raw = readJson(app0._file), was = zero(raw);
+      writeJson(app0._file, raw); changed.push(app0._file);
+      say(`  ${app0.name.padEnd(18)} ${was} → 0`);
+    }
+  }
+  _data = null; loadData();
+  if (changed.length) { git('add', ...changed); if (git('status', '--porcelain', '--', ...changed)) { git('commit', '--quiet', '-m', 'Download counts start from 0'); pushWithRetry(); } }
+  say(c.ok('Done. Counts start from 0; the site shows it in about a minute.'));
+}
+
+const COMMANDS = { publish: () => publish(), pull, status, verify, mine, move, listing: listingCmd, 'reset-counts': resetCounts };
 try {
   if (!cmd) await menu();
-  else if (!COMMANDS[cmd]) { say(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 10).map(l => l.replace(/^\/\/ ?/, '')).join('\n')); process.exitCode = 1; }
+  else if (!COMMANDS[cmd]) { say(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 14).map(l => l.replace(/^\/\/ ?/, '')).join('\n')); process.exitCode = 1; }
   else await COMMANDS[cmd]();
 } catch (e) {
   if (e instanceof Stop) { console.error(c.bad('\n✗ ' + e.message)); process.exitCode = 1; }
