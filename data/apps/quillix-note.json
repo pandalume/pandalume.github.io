@@ -4,42 +4,76 @@
   "order": 2,
   "visibility": "unlisted",
   "category": "Productivity",
-  "tagline": "Notes and handwriting for Windows and Android.",
+  "tagline": "Handwritten and typed notes on your phone and PC, kept in sync.",
   "description": [
-    "Quillix Note is a notebook for typed notes and handwriting. Your notes stay on your device, and sync between your devices when you sign in with Google."
+    "Quillix Note is a notebook for both typing and writing by hand. Mix text, handwriting, drawings, pictures, PDFs and voice recordings on the same pages, and find any note again with search, folders and tags.",
+    "Notes stay on your device. Sign in with Google if you want them on your phone and PC; locked notes are encrypted with your password before they leave the device."
   ],
-  "features": [],
+  "features": [
+    "Write by hand or type, on lined, grid or blank pages",
+    "Mark up PDFs and pictures, and record audio inside a note",
+    "Lock notes with a password (AES-256 encryption)",
+    "Reminders that ring even when the app is closed",
+    "Sync between Android and Windows that never overwrites an edit",
+    "Share a note with other people and edit it together",
+    "Optional AI help with your own key, off until you add one",
+    "Automatic backups to your device"
+  ],
   "tags": [
     "Notes",
     "Handwriting",
-    "Voice notes",
-    "Sync"
+    "PDF",
+    "Productivity"
   ],
-  "screenshots": [],
+  "screenshots": [
+    "01.png",
+    "02.png",
+    "03.png",
+    "04.png",
+    "05.png",
+    "06.png",
+    {
+      "file": "win-01.png",
+      "wide": true
+    },
+    {
+      "file": "win-02.png",
+      "wide": true
+    },
+    {
+      "file": "win-03.png",
+      "wide": true
+    }
+  ],
   "dataSafety": {
     "collected": [
       {
-        "data": "Name and email address",
+        "data": "Email address (Google sign-in)",
         "why": "Sign-in and sync",
         "optional": true
       },
       {
-        "data": "Notes and handwriting",
+        "data": "Your notes, including handwriting, pictures, recordings and attached files (locked notes stay encrypted)",
         "why": "Sync between your devices",
+        "optional": true
+      },
+      {
+        "data": "Notes you share and the email addresses of the people you share them with",
+        "why": "Sharing notes",
         "optional": true
       }
     ],
     "sent": [
       {
-        "data": "Text, handwriting or recordings you choose",
-        "to": "The AI service you pick, using your own key",
-        "why": "AI actions, only when you tap one"
+        "data": "The text, handwriting image or recording for that action",
+        "to": "The AI or transcription service you set up, with your own key",
+        "why": "AI and transcription, only when you tap them"
       }
     ],
     "encryptedInTransit": true,
-    "deletion": "Email us to delete your account and synced notes.",
+    "deletion": "In the app: Settings › Cloud sync › Delete my cloud data. To delete your sign-in account too, email us. Uninstalling removes the notes from that device.",
     "extras": [
-      "Works without an account. Nothing is collected until you sign in.",
+      "Works without an account. Nothing leaves your device until you sign in.",
       "No ads, no analytics, no tracking."
     ]
   },
@@ -54,6 +88,56 @@
     }
   },
   "releases": [
+    {
+      "version": "1.5.1",
+      "code": 13,
+      "date": "2026-10-31",
+      "status": "live",
+      "notes": "Cloud sync works again: sign in once more and your notes sync safely between your devices.",
+      "changes": [
+        "Sign in to Cloud sync again once, with any Google account you choose; your notes upload again by themselves",
+        "Just opening a note no longer leaves \"conflict copies\" on your other devices, and their changes show up within seconds",
+        "Note pictures in the list are no longer squashed and update as soon as you close a note",
+        "Updates download and install inside the app, and About shows your version, privacy policy and contact",
+        "Delete everything you synced from Settings › Cloud sync",
+        "Backups from earlier versions can still be restored"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "com.jon.quillixnote.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Quillix-Note-Android-1.5.1.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.1/Quillix-Note-Android-1.5.1.apk",
+          "size": 10895767,
+          "sha256": "e7e624b45b79af59c17486b4fb7e8ce2486f10cee4b703119092d42a41f68506"
+        },
+        {
+          "kind": "portable",
+          "name": "Quillix-Note-Portable-1.5.1.exe",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.1/Quillix-Note-Portable-1.5.1.exe",
+          "size": 117762604,
+          "sha256": "d10b5cf32dc8b40b106fc191e0b5b6b54869440b6fdb322839e608e41338277c"
+        },
+        {
+          "kind": "setup",
+          "name": "Quillix-Note-Setup-1.5.1.exe",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.1/Quillix-Note-Setup-1.5.1.exe",
+          "size": 118089956,
+          "sha256": "ef323d8b681de1a63eec76e7b5c003754480b78e2e1d5cb2abf40ca9be9f916d"
+        }
+      ]
+    },
     {
       "version": "1.4.5",
       "code": 11,
@@ -98,5 +182,9 @@
       ]
     }
   ],
-  "contentNoun": "your notes and handwriting"
+  "contentNoun": "your notes",
+  "shotStyle": "clean",
+  "ads": false,
+  "purchases": false,
+  "kind": "app"
 }
