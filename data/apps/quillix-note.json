@@ -120,21 +120,24 @@
           "name": "Quillix-Note-Android-1.5.1.apk",
           "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.1/Quillix-Note-Android-1.5.1.apk",
           "size": 10895767,
-          "sha256": "e7e624b45b79af59c17486b4fb7e8ce2486f10cee4b703119092d42a41f68506"
+          "sha256": "e7e624b45b79af59c17486b4fb7e8ce2486f10cee4b703119092d42a41f68506",
+          "selfDownloads": 1
         },
         {
           "kind": "portable",
           "name": "Quillix-Note-Portable-1.5.1.exe",
           "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.1/Quillix-Note-Portable-1.5.1.exe",
           "size": 117762604,
-          "sha256": "d10b5cf32dc8b40b106fc191e0b5b6b54869440b6fdb322839e608e41338277c"
+          "sha256": "d10b5cf32dc8b40b106fc191e0b5b6b54869440b6fdb322839e608e41338277c",
+          "selfDownloads": 1
         },
         {
           "kind": "setup",
           "name": "Quillix-Note-Setup-1.5.1.exe",
           "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.1/Quillix-Note-Setup-1.5.1.exe",
           "size": 118089956,
-          "sha256": "ef323d8b681de1a63eec76e7b5c003754480b78e2e1d5cb2abf40ca9be9f916d"
+          "sha256": "ef323d8b681de1a63eec76e7b5c003754480b78e2e1d5cb2abf40ca9be9f916d",
+          "selfDownloads": 1
         }
       ]
     },
@@ -151,7 +154,7 @@
           "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.4.5/Quillix-Note-Android-1.4.5.apk",
           "size": 10869226,
           "sha256": "6d09ac9e5f20852a027ba330156a22aa26c7182568a08e34ed8e9f95ee270afa",
-          "selfDownloads": 1
+          "selfDownloads": 12
         },
         {
           "kind": "portable",
@@ -159,7 +162,7 @@
           "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.4.5/Quillix-Note-Portable-1.4.5.exe",
           "size": 117744099,
           "sha256": "8c438a4741735a441b9f5c139d7eb7c08cdf8a46575e96bad5944272d55fa35c",
-          "selfDownloads": 1
+          "selfDownloads": 6
         },
         {
           "kind": "setup",
@@ -167,7 +170,7 @@
           "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.4.5/Quillix-Note-Setup-1.4.5.exe",
           "size": 118071385,
           "sha256": "d4e898cf1d57f37be451715a1efc90ff4276fe2249271381e015643140bd7cc5",
-          "selfDownloads": 1
+          "selfDownloads": 4
         }
       ],
       "permissions": [
