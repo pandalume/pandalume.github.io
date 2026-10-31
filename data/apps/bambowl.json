@@ -14,7 +14,6 @@
     "Cooking mode with step timers and hands-free voice control",
     "Weekly meal plan and a smart grocery list",
     "\"What can I cook?\" from what you already have",
-    "Optional AI tidy-up for messy recipe text",
     "Friends: share recipes and chat"
   ],
   "tags": [
@@ -67,11 +66,6 @@
       }
     ],
     "sent": [
-      {
-        "data": "Recipe text you choose",
-        "to": "A third-party AI service",
-        "why": "AI tidy-up, only when you tap it (approved accounts)"
-      },
       {
         "data": "Your voice, while hands-free cooking is on",
         "to": "Your phone's speech service, or Google's online speech service if you switch on “Hear me from further away”",
