@@ -7,6 +7,35 @@ function toast(msg) {
   document.body.append(t); setTimeout(() => t.remove(), 1800);
 }
 
+// Family & friends and Zenith Owner are "homes": once you're in one, Zenith's Apps link, logo and Home take you
+// back there instead of to public Zenith, and other pages (an app's page, What's new, Install help) show a way back.
+// Remembered in this browser (signed-in family members, the owner) and per tab (where this visit started).
+const HOMES = { '/family/': 'Family & friends', '/owner/': 'Zenith Owner' };
+window.zgHome = {
+  get() { try { const h = sessionStorage.getItem('zg-home') || localStorage.getItem('zg-home') || ''; return HOMES[h] ? h : ''; } catch { return ''; } },
+  // the owner app always wins in its own tab; the Family page doesn't take over a tab the owner app opened
+  set(path) {
+    try {
+      if (path === '/owner/' || !sessionStorage.getItem('zg-home')) sessionStorage.setItem('zg-home', path);
+      if (path === '/owner/' || localStorage.getItem('zg-home') !== '/owner/') localStorage.setItem('zg-home', path);
+    } catch { /* private window */ }
+    homeLinks();
+  },
+  clear() { try { sessionStorage.removeItem('zg-home'); localStorage.removeItem('zg-home'); } catch { /* ignore */ } },
+};
+function homeLinks() {
+  const home = window.zgHome.get();
+  if (!home) return;
+  const brand = $('.top .brand'), apps = $('.top nav a[href="/#apps"]'), foot = $('.foot a[href="/"]');
+  if (brand) brand.href = home;
+  if (apps) apps.href = home;
+  if (foot) { foot.href = home; foot.textContent = HOMES[home]; }
+  if (location.pathname !== home && !$('.home-back')) {
+    const a = Object.assign(document.createElement('a'), { className: 'home-back', href: home, textContent: '← ' + HOMES[home] });
+    $('#main')?.prepend(a);
+  }
+}
+
 // Inside the installed Zenith app on Android, opening github.com's download link shows a small browser sheet in
 // which Chrome never asks "File might be harmful… Download anyway?", so the APK sits at 100% forever. Going
 // straight to the file's final address downloads in place, and Chrome asks properly. The Family server looks
@@ -48,6 +77,7 @@ document.addEventListener('click', async e => {
 
 // Your own platform first, and the phone download bar when the download panel is off screen.
 document.addEventListener('DOMContentLoaded', () => {
+  homeLinks();
   const card = MINE && $(`.dl[data-platform="${MINE}"]`);
   if (card) { card.classList.add('mine'); card.parentElement.prepend(card); }
   const bar = $(`.getbar[data-platform="${MINE || 'android'}"]`) || $('.getbar');

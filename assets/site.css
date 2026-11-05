@@ -290,3 +290,10 @@ pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px
 button.btn { font: inherit; cursor: pointer; text-align: left; -webkit-appearance: none; appearance: none; }
 button.btn:not(.btn-ghost) { border: 0; }
 button.btn-iri { color: #070a0f; }
+
+/* Way back to Family & friends / Zenith Owner from any other page */
+.home-back { display: inline-flex; align-items: center; gap: 6px; margin: 14px 0 0; padding: 7px 14px; border-radius: 999px; font-size: .9rem; font-weight: 600;
+  background: var(--card); border: 1px solid var(--line2); color: var(--text); text-decoration: none; }
+.home-back:hover { background: rgba(255,255,255,.1); }
+.owner-asked { display: flex; flex-direction: column; gap: 2px; margin: 12px 0; text-decoration: none; color: inherit; border-color: rgba(251,191,36,.45); }
+.fam-asked-h { margin-top: 18px; }

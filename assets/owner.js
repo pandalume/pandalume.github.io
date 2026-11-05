@@ -113,10 +113,23 @@ ${rs.length ? `<ul class="owner-apps">${rs.map(row).join('')}</ul>` : '<p class=
     const b = e.target.closest('[data-act]');
     if (!b) return;
     if (b.dataset.act === 'in') signIn();
-    if (b.dataset.act === 'out') { session = null; save(null); start(); }
+    if (b.dataset.act === 'out') { session = null; save(null); window.zgHome?.clear(); start(); }
     if (b.dataset.act === 'qr') showQr(find(b.dataset.id));
     if (b.dataset.act === 'share') { const it = find(b.dataset.id); share(it.name, it.url); }
   });
+
+  // People who signed in on the Family page but aren't on the list yet: a note at the top, to review in Invites.
+  async function asked(t) {
+    try {
+      const r = await fetch(`${FN}?action=members`, { headers: { Authorization: `Bearer ${t}`, apikey: KEY } });
+      const n = r.ok ? ((await r.json()).requests || []).length : 0;
+      if (!n) return;
+      const a = document.createElement('a');
+      a.className = 'card owner-asked'; a.href = '/family/';
+      a.innerHTML = `<b>${n} ${n === 1 ? 'person has' : 'people have'} asked to join Family &amp; friends</b><span class="small muted">Tap to add or dismiss in Invites</span>`;
+      root.querySelector('.owner-head')?.after(a);
+    } catch { /* offline */ }
+  }
 
   async function start() {
     const t = await token();
@@ -128,6 +141,7 @@ ${rs.length ? `<ul class="owner-apps">${rs.map(row).join('')}</ul>` : '<p class=
     try {
       const res = await fetch(`${FN}?action=catalog`, { headers: { Authorization: `Bearer ${t}`, apikey: KEY } });
       const j = await res.json();
+      if (j.owner) window.zgHome?.set('/owner/');
       if (!j.owner) { root.innerHTML = `<div class="card family-signin"><p>This page is only for the owner. You're signed in as <b>${esc(j.email || '')}</b>.</p><p><a href="/">Go to Zenith Gen Orbit</a></p><button type="button" class="btn btn-ghost" data-act="out">Sign out</button></div>`; return; }
       // Family and "Just me" apps come from the private repository, through the Family server.
       for (const a of j.apps || []) {
@@ -136,6 +150,7 @@ ${rs.length ? `<ul class="owner-apps">${rs.map(row).join('')}</ul>` : '<p class=
         data.rows.push({ id: a.id, name: a.name, group: a.visibility === 'owner' ? 'Just me' : 'Family & friends', url: `${location.origin}/family/#${a.id}`, version: latest?.version || '', category: a.category || '', icon: '', files: [], self: {} });
       }
       view(j.email);
+      asked(t);
     } catch {
       root.innerHTML = '<p class="family-notice">Couldn\'t reach the server. Check your connection and try again.</p>';
     }

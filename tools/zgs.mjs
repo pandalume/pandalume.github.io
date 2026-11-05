@@ -74,7 +74,9 @@ function token() {
   if (TOKEN) return TOKEN;
   TOKEN = process.env.ZGS_GITHUB_TOKEN;
   if (!TOKEN) {                                         // reuse the login git already has (Windows Credential Manager)
-    const r = run('git', ['credential', 'fill'], { input: 'protocol=https\nhost=github.com\n\n', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+    // username = the account that owns the site, so Git Credential Manager never asks "Select an account"
+    const owner = SITE().repo.split('/')[0];
+    const r = run('git', ['credential', 'fill'], { input: `protocol=https\nhost=github.com\nusername=${owner}\n\n`, env: GIT_ENV });
     TOKEN = /^password=(.+)$/m.exec(r.stdout || '')?.[1];
   }
   if (!TOKEN) stop('No GitHub login found. Sign in once with "git push" in this folder, or set ZGS_GITHUB_TOKEN to a fine-grained token (this repo only, Contents: read and write).');

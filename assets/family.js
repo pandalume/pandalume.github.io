@@ -54,6 +54,7 @@
   async function signOut() {
     const t = session?.access_token;
     session = null; save(null);
+    window.zgHome?.clear();
     if (t) fetch(`${SB}/auth/v1/logout`, { method: 'POST', headers: { Authorization: `Bearer ${t}`, apikey: KEY } }).catch(() => {});
     start();
   }
@@ -67,9 +68,11 @@
 <button type="button" class="btn btn-iri" data-act="in">Sign in with Google</button></div>`);
   }
   function notInvited(email) {
-    set(`<div class="card family-signin"><p>You're signed in as <b>${esc(email)}</b>, which isn't on the invite list.</p>
-<p class="muted small">If you were expecting an invite, ask ${esc(CONTACT)} to add this email address, or sign in with a different Google account.</p>
-<button type="button" class="btn btn-ghost" data-act="out">Sign out</button></div>`);
+    const everyone = [...PUBLIC].sort((x, y) => x.order - y.order || x.name.localeCompare(y.name));
+    set(`<div class="card family-signin"><h2>Request sent</h2><p>You're signed in as <b>${esc(email)}</b>. This email isn't on the invite list yet, so we've let the owner know you'd like to join.</p>
+<p class="muted small">Once you're added, open this page again and your apps will be here. Wrong account? Sign out and sign in with the Google email you gave them.</p>
+<div class="btns"><button type="button" class="btn btn-iri" data-act="again">Check again</button><button type="button" class="btn btn-ghost" data-act="out">Sign out</button></div></div>
+${everyone.length ? `<section><div class="sec-row"><h2 class="sec">Public <span class="muted small">on Zenith for everyone</span></h2></div>${kinds(everyone)}</section>` : ''}`);
   }
 
   const latestFor = (app, p) => (app.releases || []).find(r => r.status === 'live' && r.files.length && r.files.some(f => KINDS[f.kind] === p));
@@ -169,7 +172,7 @@ ${rel.length > 3 ? `<details class="older"><summary>Show ${rel.length - 3} older
     box.className = 'card fam-owner';
     root.append(box);
     const draw = async () => {
-      const { members, apps } = await getJson({ action: 'members' });
+      const { members, apps, requests = [] } = await getJson({ action: 'members' });
       const appName = id => id === '*' ? 'all family apps' : (apps.find(a => a.id === id)?.name || id);
       const qr = document.getElementById('fam-share-qr')?.innerHTML || '';
       box.innerHTML = `<h2>Invites <span class="muted small">(only you see this)</span></h2>
@@ -178,6 +181,9 @@ ${rel.length > 3 ? `<details class="older"><summary>Show ${rel.length - 3} older
 <p class="small muted">Face to face: let them scan this with their phone camera. Otherwise send them the link. They sign in with the Google email you invited.</p>
 <p><code>${esc(HOME)}</code></p>
 <div class="btns"><button type="button" class="btn btn-ghost" data-act="send">Share link…</button><button type="button" class="btn btn-ghost" data-act="copy">Copy link</button></div></div></div>
+${requests.length ? `<h3 class="fam-asked-h">Asked to join <span class="chip warn">${requests.length}</span></h3>
+<p class="small muted">They signed in here but aren't on your list. Add them, or dismiss if you don't know them.</p>
+<ul class="fam-members fam-asked">${requests.map(r => `<li><span><b>${esc(r.name || r.email)}</b>${r.name ? ` <span class="muted small">${esc(r.email)}</span>` : ''}<br><span class="small muted">First asked ${esc(when(r.first_seen))}${r.visits > 1 ? ` · ${r.visits} visits` : ''}</span></span><span class="fam-acts"><button type="button" class="linkish" data-act="accept" data-email="${esc(r.email)}" data-name="${esc(r.name || '')}">Add</button><button type="button" class="linkish" data-act="pick" data-email="${esc(r.email)}" data-name="${esc(r.name || '')}">Choose apps</button><button type="button" class="linkish" data-act="dismiss" data-email="${esc(r.email)}">Dismiss</button></span></li>`).join('')}</ul>` : ''}
 ${members.length ? `<ul class="fam-members">${members.map(m => `<li><span><b>${esc(m.name || m.email)}</b>${m.name ? ` <span class="muted small">${esc(m.email)}</span>` : ''}<br><span class="small muted">${esc(m.apps.map(appName).join(', '))}</span></span><span class="fam-acts"><button type="button" class="linkish" data-act="send" data-name="${esc(m.name || '')}" data-email="${esc(m.email)}">Send invite</button><button type="button" class="linkish" data-act="rm" data-email="${esc(m.email)}">Remove</button></span></li>`).join('')}</ul>` : '<p class="muted small">Nobody invited yet.</p>'}
 <form class="fam-form" data-act="add"><h3>Invite someone</h3>
 <label>Their Google email <input type="email" name="email" required autocomplete="off"></label>
@@ -207,6 +213,24 @@ ${apps.map(a => `<label class="chk"><input type="checkbox" name="apps" value="${
         } catch { /* share sheet closed */ }
         return;
       }
+      const r = e.target.closest('[data-act="accept"], [data-act="pick"], [data-act="dismiss"]');
+      if (r) {
+        try {
+          if (r.dataset.act === 'accept') {
+            r.textContent = 'Adding…';
+            await getJson({ action: 'members' }, { method: 'POST', body: JSON.stringify({ email: r.dataset.email, name: r.dataset.name, apps: ['*'] }) });
+            await draw();
+          } else if (r.dataset.act === 'pick') {
+            const f = box.querySelector('.fam-form');
+            f.email.value = r.dataset.email; f.name.value = r.dataset.name;
+            f.scrollIntoView({ behavior: 'smooth', block: 'start' }); f.email.focus({ preventScroll: true });
+          } else {
+            if (r.dataset.sure !== '1') { r.dataset.sure = '1'; r.textContent = 'Tap again to dismiss'; return; }
+            await getJson({ action: 'requests', email: r.dataset.email }, { method: 'DELETE' }); await draw();
+          }
+        } catch (err) { alertIn(box, err.message); }
+        return;
+      }
       const b = e.target.closest('[data-act="rm"]');
       if (!b) return;
       if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Tap again to remove'; return; }
@@ -214,6 +238,7 @@ ${apps.map(a => `<label class="chk"><input type="checkbox" name="apps" value="${
     });
     try { await draw(); } catch (err) { box.textContent = 'Invites could not load: ' + err.message; }
   }
+  const when = t => { try { return new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); } catch { return ''; } };
   const alertIn = (box, text) => { const p = document.createElement('p'); p.className = 'family-notice'; p.textContent = text; box.prepend(p); };
 
   root.addEventListener('click', async e => {
@@ -221,6 +246,7 @@ ${apps.map(a => `<label class="chk"><input type="checkbox" name="apps" value="${
     if (!b || b.tagName === 'FORM') return;
     if (b.dataset.act === 'in') signIn();
     if (b.dataset.act === 'out') signOut();
+    if (b.dataset.act === 'again') start();
     if (b.dataset.act === 'dl') {
       const was = b.innerHTML; b.disabled = true; b.textContent = 'Starting download…';
       try { const j = await getJson({ action: 'download', app: b.dataset.app, name: b.dataset.name }); (window.zgOpenDownload || (u => { location.href = u; }))(j.url); }
@@ -248,6 +274,7 @@ ${app ? detailView(app) : listView()}`);
       const j = await getJson({ action: 'catalog' });
       if (!j.member) return notInvited(j.email);
       apps = j.apps; me = j;
+      window.zgHome?.set('/family/');
       if (jump && location.hash.slice(1) !== jump) location.hash = jump; else render();
     } catch (err) {
       if (err.signedOut) return signedOut();

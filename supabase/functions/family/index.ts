@@ -12,9 +12,13 @@
 // GET  ?action=download&app=<id>&name=<file>    { url } : a GitHub link valid for a few minutes
 //                                               (&go=1 answers with a redirect instead)
 // GET  ?action=feed&app=<id>&platform=android   the same update feed as public apps, with fresh links
-// GET  ?action=members                          owners only: the invite list
-// POST ?action=members  {email,name,apps}       owners only: invite or change someone
+// GET  ?action=members                          owners only: the invite list, and who asked to join
+// POST ?action=members  {email,name,apps}       owners only: invite or change someone (clears their request)
 // DELETE ?action=members&email=<email>          owners only: remove someone
+// DELETE ?action=requests&email=<email>         owners only: dismiss a request to join
+//
+// Someone who signs in but isn't on the list is kept in family_requests (email, Google name, when), so the
+// owner can add them with one tap. Zenith's own list: nothing to do with sign-ins inside the apps.
 //
 // Secrets: FAMILY_GITHUB_TOKEN (fine-grained, read-only Contents on FAMILY_REPO only).
 // Optional: FAMILY_REPO (default pandalume/pandalume-family), OWNER_EMAILS (comma-separated).
@@ -109,7 +113,10 @@ Deno.serve(async req => {
       if (req.method === 'GET') {
         const { data, error } = await db.from('family_members').select('*').order('added_at');
         if (error) throw error;
-        return json({ members: data, apps: (await allApps()).filter(a => a.visibility === 'family').map(a => ({ id: a.id, name: a.name })) });
+        const asked = await db.from('family_requests').select('email, name, first_seen, last_seen, visits').order('last_seen', { ascending: false });
+        const on = new Set((data ?? []).map(m => m.email));
+        return json({ members: data, requests: (asked.data ?? []).filter(r => !on.has(r.email) && !OWNERS.includes(r.email)),
+          apps: (await allApps()).filter(a => a.visibility === 'family').map(a => ({ id: a.id, name: a.name })) });
       }
       if (req.method === 'POST') {
         const b = await req.json();
@@ -118,6 +125,7 @@ Deno.serve(async req => {
         const apps = Array.isArray(b.apps) && b.apps.length ? b.apps.map(String) : ['*'];
         const { error } = await db.from('family_members').upsert({ email: e, name: String(b.name ?? '').slice(0, 80) || null, apps });
         if (error) throw error;
+        await db.from('family_requests').delete().eq('email', e);
         return json({ ok: true });
       }
       if (req.method === 'DELETE') {
@@ -127,7 +135,24 @@ Deno.serve(async req => {
       }
     }
 
-    if (!member) return json({ member: false, email }, action === 'catalog' ? 200 : 403);
+    if (action === 'requests') {
+      if (!owner) return json({ error: 'Only the owner can manage invites.' }, 403);
+      if (req.method === 'DELETE') {
+        const { error } = await db.from('family_requests').delete().eq('email', (q.get('email') ?? '').toLowerCase());
+        if (error) throw error;
+        return json({ ok: true });
+      }
+    }
+
+    if (!member) {
+      // Not on the list (yet): remember the request so the owner can add them with one tap.
+      if (action === 'catalog') {
+        const name = String(user.user_metadata?.full_name ?? user.user_metadata?.name ?? '').slice(0, 80) || null;
+        const { data: was } = await db.from('family_requests').select('visits').eq('email', email).maybeSingle();
+        await db.from('family_requests').upsert({ email, name, last_seen: new Date().toISOString(), visits: (was?.visits ?? 0) + 1 });
+      }
+      return json({ member: false, email }, action === 'catalog' ? 200 : 403);
+    }
     const may = (id: string) => member!.apps.includes('*') || member!.apps.includes(id);
     // "owner" apps (Just me) are published but shown to owners only.
     const apps = (await allApps()).filter(a => may(a.id) && (a.visibility === 'family' || (owner && a.visibility === 'owner')));

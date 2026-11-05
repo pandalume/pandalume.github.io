@@ -2,7 +2,7 @@
 # git push and Publish.cmd (zgs) both use it. The token is typed into this window only; it is
 # never written to a file, printed, or sent anywhere except GitHub (to check it works).
 $ErrorActionPreference = 'Stop'
-$repo = 'tinypanda-collab/tinypanda-collab.github.io'
+$repo = 'pandalume/pandalume.github.io'
 Write-Host "Paste the new GitHub token (it won't show), then press Enter:" -ForegroundColor Cyan
 $sec = Read-Host -AsSecureString
 $tok = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
@@ -13,7 +13,10 @@ if (-not $r.permissions.push) { Write-Host 'The token cannot write to the repo (
 # remove the old saved logins, then save the new one
 "protocol=https`nhost=github.com`n`n" | git credential reject
 "protocol=https`nhost=github.com`nusername=hub-default-github`n`n" | git credential reject
-"protocol=https`nhost=github.com`nusername=tinypanda-collab`npassword=$tok`n`n" | git credential approve
+"protocol=https`nhost=github.com`nusername=pandalume`n`n" | git credential reject
+"protocol=https`nhost=github.com`nusername=pandalume`npassword=$tok`n`n" | git credential approve
+# one GitHub account for this PC's git, so Git Credential Manager never asks "Select an account"
+git config --global credential.https://github.com.username pandalume
 $tok = $null
 $env:GIT_TERMINAL_PROMPT = '0'
 Push-Location (Split-Path $PSScriptRoot)
