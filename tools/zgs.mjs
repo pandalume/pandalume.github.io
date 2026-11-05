@@ -662,7 +662,7 @@ async function move() {
     return say(c.ok('Done.'));
   }
   const raw = readJson(app._file), current = new Set(Object.keys(app.platforms).map(p => latestFor(app, p)).filter(Boolean));
-  say(c.b(`\nMove ${app.name} to family & friends only`));
+  say(c.b(`\nMove ${app.name} to ${to === 'owner' ? '"just me" (only you)' : 'family & friends only'}`));
   say(`  current files copied to ${FAMILY()}: ${[...current].flatMap(r => r.files.map(f => f.name)).join(', ') || 'none'}`);
   say(`  older versions keep their notes; their old public links are not shown anywhere`);
   say(`  website keeps: privacy and terms pages, and an "invite only" page at /apps/${app.id}/`);
@@ -697,15 +697,15 @@ async function move() {
   const dir = appDir(app.id);
   for (const rel of ['icon.webp', 'icon.png', 'icon.jpg', ...(raw.screenshots || []).map(s => 'shots/' + (typeof s === 'string' ? s : s.file))])
     if (fs.existsSync(path.join(dir, rel))) await fPut(`apps/${app.id}/${rel}`, fs.readFileSync(path.join(dir, rel)), `Move ${app.name}: ${rel}`);
-  await fPut(`apps/${app.id}.json`, Buffer.from(JSON.stringify(raw, null, 2) + '\n'), `Move ${app.name} here (family & friends only)`);
+  await fPut(`apps/${app.id}.json`, Buffer.from(JSON.stringify(raw, null, 2) + '\n'), `Move ${app.name} here (${to === 'owner' ? 'just me' : 'family & friends only'})`);
   writeJson(app._file, stubOf(raw));
   fs.rmSync(path.join(dir, 'shots'), { recursive: true, force: true });
   fs.rmSync(path.join(dir, 'share.png'), { force: true });
   _data = null; loadData();
   git('add', '-A', '--', app._file, path.join('content', 'apps', app.id));
-  git('commit', '--quiet', '-m', `${app.name} is now family & friends only`);
+  git('commit', '--quiet', '-m', `${app.name} is now ${to === 'owner' ? '"just me"' : 'family & friends only'}`);
   pushWithRetry();
-  say(c.ok(`\n${app.name} moved. Invited people find it on ${SITE().baseUrl}/family/`));
+  say(c.ok(`\n${app.name} moved. ${to === 'owner' ? 'Only you see it, in Zenith Owner and' : 'Invited people find it'} on ${SITE().baseUrl}/family/`));
   if (flags['delete-public']) {
     for (const r of raw.releases || []) {
       const pub = await gh('GET', `/releases/tags/${encodeURIComponent(releaseTag(app, r.version))}`);
