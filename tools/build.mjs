@@ -277,7 +277,7 @@ function familyPage() {
 <noscript><p>The Family page needs JavaScript.</p></noscript>
 <p class="muted" data-state="loading">Loading…</p></div>
 <template id="fam-share-qr">${qrSvg(site.baseUrl + '/family/', 200)}</template>
-<script type="application/json" id="family-public">${JSON.stringify(apps.filter(a => a.visibility === 'public' || a.visibility === 'unlisted').map(a => {
+<script type="application/json" id="family-public">${JSON.stringify(apps.filter(a => a.visibility === 'public').map(a => {   // link-only apps stay unlisted here too
   const latest = (a.releases || []).find(r => r.status === 'live');
   return { id: a.id, name: a.name, tagline: a.tagline, category: a.category || '', kind: a.kind || 'app', group: a.visibility, platforms: Object.keys(a.platforms).sort((x, y) => (x === 'android' ? 0 : 1) - (y === 'android' ? 0 : 1)), version: latest?.version || '', icon: iconOf(a.id), order: a.order ?? 99 };
 })).replace(/</g, '\\u003c')}</script>
@@ -427,7 +427,7 @@ ${perms.length ? `<details class="ds-more perms"><summary>App permissions (Andro
   ${(r.changes || []).length ? `<ul>${r.changes.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
   ${r.status === 'pulled' ? `<p class="small warn-text">Withdrawn: ${esc(r.pulledReason)}</p>` : current.has(r) ? '<p class="small muted">Current version, download it above.</p>' : ''}
 </li>`;
-  const rel = app.releases || [], SHOW = 3;
+  const rel = app.releases || [], SHOW = 1;   // the newest version; the rest fold under "Show older versions"
   const versions = rel.length ? `<section><h2 class="sec">Version history</h2><ol class="versions">${rel.slice(0, SHOW).map(verItem).join('')}</ol>
 ${rel.length > SHOW ? `<details class="older"><summary>Show ${rel.length - SHOW} older version${rel.length - SHOW > 1 ? 's' : ''}</summary><ol class="versions">${rel.slice(SHOW).map(verItem).join('')}</ol></details>` : ''}</section>` : '';
 

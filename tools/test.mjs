@@ -63,6 +63,7 @@ t('app page download button points at the feed\'s APK', () => assert.ok(html('ap
 t('unlisted pages are noindex and not on the home page', () => {
   assert.match(html('apps/quillix-note/index.html'), /noindex/);
   assert.ok(!html('index.html').includes('/apps/quillix-note/'));
+  assert.ok(!/id="family-public">[^<]*quillix-note/.test(html('family/index.html')), 'link-only apps are not listed on the Family page either');
 });
 t('each app\'s policy covers only that app', () => {
   const q = html('apps/quillix-note/privacy/index.html'), all = html('privacy.html');
@@ -155,7 +156,7 @@ t('app page: QR for Android, facts strip, share image, version anchors, older ve
   assert.match(a, /<svg class="qr"/);
   assert.match(a, /<dl class="facts">[\s\S]*Version[\s\S]*1\.6\.1/);
   assert.match(a, /og:image" content="https:\/\/[^"]+\/apps\/bambowl\/share\.png"/);
-  assert.ok(a.includes('id="v1.6.1"') && /<details class="older"><summary>Show 1 older version<\/summary>[\s\S]*id="v1.5.0"/.test(a));
+  assert.ok(/id="v1.6.2"[\s\S]*<details class="older"><summary>Show 3 older versions<\/summary>[\s\S]*id="v1.6.1"[\s\S]*id="v1.5.0"/.test(a), 'only the newest version shows; the rest are folded');
   assert.ok(fs.existsSync(out('apps/bambowl/share.png')) && fs.existsSync(out('assets/og.png')));
 });
 t('home shows latest updates and no filter row with few apps', () => {

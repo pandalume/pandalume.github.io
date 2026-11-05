@@ -154,8 +154,8 @@ ${(ds.sent || []).map(x => `<div class="ds-row"><span aria-hidden="true">•</sp
 ${ds.encryptedInTransit ? '<div class="ds-row"><span aria-hidden="true">•</span><div><b>Data is encrypted in transit</b></div></div>' : ''}
 ${ds.deletion ? `<div class="ds-row"><span aria-hidden="true">•</span><div><b>You can delete your data</b><span>${esc(ds.deletion)}</span></div></div>` : ''}
 ${(ds.extras || []).map(x => `<div class="ds-row"><span aria-hidden="true">•</span><div><span>${esc(x)}</span></div></div>`).join('')}</div></section>` : ''}
-${rel.length ? `<section><h2 class="sec">Version history</h2><ol class="versions">${rel.slice(0, 3).map(ver).join('')}</ol>
-${rel.length > 3 ? `<details class="older"><summary>Show ${rel.length - 3} older version${rel.length - 3 > 1 ? 's' : ''}</summary><ol class="versions">${rel.slice(3).map(ver).join('')}</ol></details>` : ''}</section>` : ''}
+${rel.length ? `<section><h2 class="sec">Version history</h2><ol class="versions">${rel.slice(0, 1).map(ver).join('')}</ol>
+${rel.length > 1 ? `<details class="older"><summary>Show ${rel.length - 1} older version${rel.length - 1 > 1 ? 's' : ''}</summary><ol class="versions">${rel.slice(1).map(ver).join('')}</ol></details>` : ''}</section>` : ''}
 <p class="small"><a href="/apps/${esc(app.id)}/privacy/">${esc(app.name)} privacy policy</a> · <a href="/apps/${esc(app.id)}/terms/">Terms of use</a></p>`;
   }
 
