@@ -36,26 +36,29 @@ function homeLinks() {
   }
 }
 
-// Inside the installed Zenith app on Android, opening github.com's download link shows a small browser sheet in
-// which Chrome never asks "File might be harmful… Download anyway?", so the APK sits at 100% forever. Going
-// straight to the file's final address downloads in place, and Chrome asks properly. The Family server looks
-// that address up (GitHub doesn't let pages read it); if that fails, the normal link is used.
-const INSTALLED = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: minimal-ui)').matches;
+// Android APK downloads never open a github.com address. On a phone with the GitHub app installed, Android hands
+// github.com links to that app, which only shows "Sign in". And inside the installed Zenith app, github.com opens a
+// small browser sheet where Chrome never asks "File might be harmful… Download anyway?", so the APK hangs at 100%.
+// So Zenith's server looks up the file's final download address (GitHub doesn't let pages read it), and the page
+// goes straight there: Chrome downloads in place and asks properly. Only if that fails twice is the normal link used.
 const FAMILY_FN = 'https://oeffkydfujcasphguxjr.supabase.co/functions/v1/family';
+const RELEASE_FILE = /^https:\/\/github\.com\/[^/]+\/[^/]+\/releases\/download\//;
 window.zgOpenDownload = async url => {
-  if (MINE === 'android' && INSTALLED && /^https:\/\/github\.com\/[^/]+\/[^/]+\/releases\/download\//.test(url)) {
-    try {
-      const r = await fetch(`${FAMILY_FN}?action=link&url=${encodeURIComponent(url)}`);
-      const j = await r.json();
-      if (j.url) { location.href = j.url; return; }
-    } catch { /* fall back to the normal link */ }
+  if (MINE === 'android' && RELEASE_FILE.test(url)) {
+    for (let i = 0; i < 2; i++) {
+      try {
+        const r = await fetch(`${FAMILY_FN}?action=link&url=${encodeURIComponent(url)}`);
+        const j = await r.json();
+        if (j.url) { location.href = j.url; return; }
+      } catch { /* try again, then fall back to the normal link */ }
+    }
   }
   location.href = url;
 };
 
 document.addEventListener('click', async e => {
   const apk = e.target.closest('a[data-kind="apk"], a[href$=".apk"]');
-  if (apk && MINE === 'android' && INSTALLED) { e.preventDefault(); toast('Starting download…'); window.zgOpenDownload(apk.href); return; }
+  if (apk && MINE === 'android' && RELEASE_FILE.test(apk.href)) { e.preventDefault(); toast('Starting download…'); window.zgOpenDownload(apk.href); return; }
   const copy = e.target.closest('.copy');
   if (copy) {
     try { await navigator.clipboard.writeText(copy.dataset.copy); toast(copy.dataset.done || 'Copied'); } catch { toast('Copy failed'); }
