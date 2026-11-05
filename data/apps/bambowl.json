@@ -6,11 +6,11 @@
   "category": "Food & cooking",
   "tagline": "Recipes, meal plans and grocery lists, tidy and in one place.",
   "description": [
-    "Bambowl keeps your recipes, cookbooks, weekly meal plan and grocery list on your phone. Save a recipe from a website, a video or a photo of a cookbook page, and Bambowl reads it into clean ingredients and steps.",
+    "Bambowl keeps your recipes, cookbooks, weekly meal plan and grocery list on your phone. Save a recipe from a website, a video's description or a post's caption, or a photo of a cookbook page, and Bambowl reads it into clean ingredients and steps.",
     "Sign in with Google if you want your recipes on more than one phone. Everything else stays on the phone."
   ],
   "features": [
-    "Import recipes from links (recipe sites, YouTube, TikTok, Instagram, Facebook) or photos, with the nutrition the site publishes",
+    "Import recipes from links (recipe sites, and the written description or caption of YouTube, TikTok, Instagram, Facebook and Xiaohongshu posts) or photos, with the nutrition the site publishes",
     "Cooking mode with step timers and hands-free voice control",
     "Weekly meal plan and a smart grocery list",
     "\"What can I cook?\" from what you already have",
@@ -87,6 +87,43 @@
     }
   },
   "releases": [
+    {
+      "version": "1.6.6",
+      "code": 13,
+      "date": "2026-11-05",
+      "status": "live",
+      "notes": "One-tap Import, recipes from Xiaohongshu, and a new Discover row.",
+      "changes": [
+        "Import turns a link into a recipe ready to review, in one tap; Open the post only appears when a site hides a post from apps",
+        "Paste or share a Xiaohongshu note's link to save its recipe and photo",
+        "Discover has a new row, 5 ingredients or less: simple dishes that look as good as they taste",
+        "Captions and pasted text split more cleanly into ingredients, steps and notes, including recipes written in Chinese",
+        "Chat: the keyboard stays open after you send, and messages you've read no longer come back as unread",
+        "In Friends, tap someone's picture to see their profile, or their chat to open it; a neater unread count",
+        "When a new version is out, Bambowl offers it each time you open the app, until you update",
+        "Links shared with text right after them now open correctly"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "com.google.android.c2dm.permission.RECEIVE",
+        "com.jon.bambowl.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.6.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/bambowl-1.6.6/Bambowl-1.6.6.apk",
+          "size": 8218032,
+          "sha256": "7155a6a0b8da32690e3b3abd5d3f628349f9f81bb9f3aed9828bfce36e9ec298"
+        }
+      ]
+    },
     {
       "version": "1.6.5",
       "code": 12,
