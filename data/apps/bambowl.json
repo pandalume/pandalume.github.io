@@ -12,9 +12,10 @@
   "features": [
     "Import recipes from links (recipe sites, and the written description or caption of YouTube, TikTok, Instagram, Facebook and Xiaohongshu posts) or photos, with the nutrition the site publishes",
     "Cooking mode with step timers and hands-free voice control",
-    "Weekly meal plan and a smart grocery list",
-    "\"What can I cook?\" from what you already have",
-    "Friends: share recipes and chat"
+    "Weekly meal plan and a smart grocery list, with My fridge: list what you have and see what each recipe is missing",
+    "\"What can I cook?\" from what's in your fridge, or search your recipes by ingredient",
+    "Friends and groups of up to 5: share recipes and chat",
+    "A daily gift, quests, achievements, events, redeem codes and a free season pass, a Closet of avatar frames, chat styles and collectibles, a Mail for gifts and news, and a Shop that takes only earned Bambits"
   ],
   "tags": [
     "Recipes",
@@ -40,7 +41,7 @@
         "optional": true
       },
       {
-        "data": "Recipes, cookbooks, meal plans and grocery lists",
+        "data": "Recipes, cookbooks, meal plans, grocery lists and what you list in My fridge",
         "why": "Sync between your phones",
         "optional": true
       },
@@ -50,13 +51,18 @@
         "optional": true
       },
       {
-        "data": "Messages and recipes you send to friends",
-        "why": "Friends chat",
+        "data": "Messages and recipes you send to friends and groups",
+        "why": "Friends and group chat",
+        "optional": true
+      },
+      {
+        "data": "Bambits balance and history, daily gift streak and time zone, quest and achievement progress, the frames and chat styles you have and wear, what you buy in the Shop, the events you finish, codes you redeem, season pass rewards you claim, and the Mail Bambowl sends you (read and claimed)",
+        "why": "The daily gift, quests, achievements, events, redeem codes, the season pass, Mail, the Closet and the Shop",
         "optional": true
       },
       {
         "data": "Notification token",
-        "why": "Alerts for messages and friend requests",
+        "why": "Alerts for messages, group invites and friend requests",
         "optional": true
       },
       {
@@ -87,6 +93,43 @@
     }
   },
   "releases": [
+    {
+      "version": "1.6.7",
+      "code": 14,
+      "date": "2026-11-12",
+      "status": "live",
+      "notes": "Groups, My fridge, Bambits, achievements, a Closet, a Shop, Mail and a season pass.",
+      "changes": [
+        "Groups: chat and share recipes with up to 4 friends at once; anyone in a group can invite their own friends, and you can mute or leave it",
+        "My fridge (in Groceries): list what you have at home; recipes show what's missing and add it to your grocery list in one tap",
+        "Bambits: a daily gift that grows over 7 days, events and redeem codes; spend them in the new Shop",
+        "Achievements and daily quests: goals to reach as you cook, plan and share; pin up to 3 badges for friends to see",
+        "Season pass: a free reward track, with a frame you can only get this season",
+        "Closet: earn avatar frames, chat bubble styles and collectibles, and wear them in chats and groups",
+        "Recipes from videos and posts now come in sorted: ingredients, instructions, nutrition and tags, ready to check before you save",
+        "New Daily and Mail buttons: today's gift, quests and the season pass in one place, and gifts and news from Bambowl to claim"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "com.google.android.c2dm.permission.RECEIVE",
+        "com.jon.bambowl.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.7.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/bambowl-1.6.7/Bambowl-1.6.7.apk",
+          "size": 9253433,
+          "sha256": "eaa2d5660a370e58d9485093d9e95a5404608d553a3306c2787b792d6981b0c8"
+        }
+      ]
+    },
     {
       "version": "1.6.6",
       "code": 13,
