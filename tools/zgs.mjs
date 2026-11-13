@@ -22,7 +22,7 @@ import crypto from 'node:crypto';
 import readline from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 import https from 'node:https';
-import { ROOT, KINDS, PLATFORMS, NOTES_MAX, loadData, readJson, writeJson, validate, cmpVersion, latestFor, releaseTag, androidFeed, windowsFeed, pendingPolicyChanges } from './lib.mjs';
+import { ROOT, KINDS, PLATFORMS, NOTES_MAX, loadData, readJson, writeJson, validate, cmpVersion, cmpRelease, latestFor, releaseTag, androidFeed, windowsFeed, pendingPolicyChanges } from './lib.mjs';
 
 const CONFIG = readJson(path.join(ROOT, 'tools', 'zgs.config.json'));
 const argv = process.argv.slice(2);
@@ -282,7 +282,7 @@ function whatsNew(folder, version) {
   if (!fs.existsSync(f)) return null;
   const lines = fs.readFileSync(f, 'utf8').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const v = (lines.shift() || '').replace(/^v(ersion)?\s*/i, '');
-  if (v !== version) { say(c.dim(`  (whats-new.txt is for ${v || '?'}, this build is ${version}; not using it)`)); return null; }
+  if (v !== version && v !== String(version).replace(/-(beta|dev)$/, '')) { say(c.dim(`  (whats-new.txt is for ${v || '?'}, this build is ${version}; not using it)`)); return null; }
   const notes = lines.find(l => !/^[-•*]\s/.test(l)) || '';
   const changes = lines.filter(l => /^[-•*]\s/.test(l)).map(l => l.replace(/^[-•*]\s+/, '')).slice(0, 20);
   if (!notes || notes.length > NOTES_MAX) { say(c.bad(`  whats-new.txt needs one line under ${NOTES_MAX} characters after the version.`)); return null; }
@@ -395,7 +395,7 @@ async function publish(newApp = null) {
   const all = app.releases || [];
   if (all.some(r => r.version === build.version)) stop(`${app.name} ${build.version} is already published. Raise the version and rebuild.`);
   const newest = all[0];
-  if (!backfill && newest && cmpVersion(build.version, newest.version) <= 0) stop(`${build.version} is not newer than ${newest.version}. (Use --backfill to add an older build to the history.)`);
+  if (!backfill && newest && cmpRelease(build, newest) <= 0) stop(`${build.version} is not newer than ${newest.version}. (Use --backfill to add an older build to the history.)`);
   if (build.code != null) {
     const codes = all.filter(r => r.code != null);
     if (!backfill && codes.some(r => r.code >= build.code)) stop(`versionCode ${build.code} is not higher than every published one (highest: ${Math.max(...codes.map(r => r.code))}). Phones only update to a higher versionCode.`);
@@ -422,7 +422,7 @@ async function publish(newApp = null) {
   const release = { version: build.version, ...(build.code != null && { code: build.code }), date, status: 'live', notes, ...(changes.length && { changes }), ...(build.permissions && { permissions: build.permissions }), files: [] };
   // Check the finished data would be valid *before* touching GitHub.
   const preview = [...all, { ...release, files: build.files.map(f => ({ kind: f.kind, name: f.upload, url: 'https://example.invalid/x', size: f.size, sha256: f.sha256 })) }]
-    .sort((a, b) => cmpVersion(b.version, a.version));
+    .sort((a, b) => cmpRelease(b, a));
   const errs = validate(SITE(), [{ ...app, releases: preview }]);
   if (errs.length) stop('This release would make the data invalid:\n  ' + errs.join('\n  '));
 
@@ -484,7 +484,7 @@ async function publish(newApp = null) {
   let raw = created ? created.raw : family ? Object.fromEntries(Object.entries(fresh).filter(([k]) => k !== '_file')) : readJson(fresh._file);
   if (family) raw.visibility = vis;
   if (listingChanges.length) applyListing(raw, listing, family);
-  raw.releases = [...(raw.releases || []), release].sort((a, b) => cmpVersion(b.version, a.version));
+  raw.releases = [...(raw.releases || []), release].sort((a, b) => cmpRelease(b, a));
   if (family) {
     const errs = validate(SITE(), [{ ...raw, _file: fresh._file }]);
     if (errs.length) stop('The family data would be invalid:\n  ' + errs.join('\n  '));
@@ -759,12 +759,12 @@ async function menu() {
   for (const app0 of DATA().apps) {
     if (!CONFIG.apps[app0.id] || app0.visibility === 'private') continue;
     const app = PRIVATE_REPO(app0.visibility) ? await familyApp(app0) : app0;
-    const live = (app.releases || []).find(r => r.status === 'live')?.version || '-';
+    const liveRel = (app.releases || []).find(r => r.status === 'live'), live = liveRel?.version || '-';
     let state, ready = false;
     try {
       const b = findBuild(app, path.join(CONFIG.finishedApps, CONFIG.apps[app.id]));
       if ((app.releases || []).some(r => r.version === b.version)) state = c.dim('up to date');
-      else if (live === '-' || cmpVersion(b.version, live) > 0) { state = c.ok(`${b.version} ready to publish`); ready = true; }
+      else if (!liveRel || cmpRelease(b, liveRel) > 0) { state = c.ok(`${b.version} ready to publish`); ready = true; }
       else state = c.dim(`folder has ${b.version} (older)`);
     } catch (e) { if (!(e instanceof Stop)) throw e; state = c.bad(e.message.split('\n')[0]); }
     rows.push({ app, live, state, ready });

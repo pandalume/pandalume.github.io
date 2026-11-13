@@ -24,15 +24,18 @@ export function loadData(dataDir = path.join(ROOT, 'data')) {
   return { site, apps };
 }
 
-/** Compares "1.10.0" > "1.9.2". */
+/** Compares "1.10.0" > "1.9.2". A label after the number ("1.6.7-beta") is ignored here: same number, 0. */
+const versionNums = v => String(v).split('-')[0].split('.').map(Number);
 export function cmpVersion(a, b) {
-  const pa = String(a).split('.').map(Number), pb = String(b).split('.').map(Number);
+  const pa = versionNums(a), pb = versionNums(b);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const d = (pa[i] || 0) - (pb[i] || 0);
     if (d) return d;
   }
   return 0;
 }
+/** Two releases: by version number, then by versionCode (so "1.6.7-beta", code 15, comes after "1.6.7", code 14). */
+export function cmpRelease(a, b) { return cmpVersion(a.version, b.version) || ((a.code ?? 0) - (b.code ?? 0)); }
 
 export function validate(site, apps) {
   const e = [], ids = new Set();
@@ -68,7 +71,7 @@ export function validate(site, apps) {
     let prev = null;
     for (const r of a.releases || []) {
       const rv = m => w(`release ${r.version}: ${m}`);
-      if (!/^\d+(\.\d+){1,3}$/.test(r.version || '')) rv('version must look like 1.2.3');
+      if (!/^\d+(\.\d+){1,3}(-beta)?$/.test(r.version || '')) rv('version must look like 1.2.3 (or 1.2.3-beta)');
       if (seen.has(r.version)) rv('duplicate version'); seen.add(r.version);
       if (!['live', 'pulled'].includes(r.status)) rv('status must be live or pulled');
       if (r.status === 'pulled' && !r.pulledReason) rv('pulled releases need pulledReason');
@@ -89,7 +92,7 @@ export function validate(site, apps) {
       if (apk && !Number.isInteger(r.code)) rv('a release with an APK needs its versionCode as "code"');
       // newest first: every older entry must have a lower version and (for Android) a lower code
       if (prev) {
-        if (cmpVersion(prev.version, r.version) <= 0) w(`releases must be newest first (${prev.version} before ${r.version})`);
+        if (cmpRelease(prev, r) <= 0) w(`releases must be newest first (${prev.version} before ${r.version})`);
         if (prev.code != null && r.code != null && prev.code <= r.code) w(`versionCode must rise with each version (${prev.version}=${prev.code}, ${r.version}=${r.code})`);
       }
       prev = r;
@@ -137,7 +140,7 @@ export function pendingPolicyChanges(markdown) {
 /** Every live release across apps, newest first (for the What's new page and feed). */
 export function timeline(apps) {
   return apps.flatMap(app => (app.releases || []).filter(r => r.status === 'live').map(r => ({ app, r })))
-    .sort((a, b) => b.r.date.localeCompare(a.r.date) || cmpVersion(b.r.version, a.r.version));
+    .sort((a, b) => b.r.date.localeCompare(a.r.date) || cmpRelease(b.r, a.r));
 }
 
 /** Events and offers showing today: started (or no start) and not yet ended (or no end). */
