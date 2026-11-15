@@ -1,0 +1,20 @@
+<h2>Bucks Book</h2>
+<ul>
+<li><b>On your phone:</b> your shift calendar and pay settings, and your money records: accounts and balances, transactions (amount, date, category, place, notes and any tax-relief tag), budgets, savings goals, bills, loans, the place-to-category rules Bucks Book learns, and settings such as the theme, alarms and app lock. Bucks Book works fully without an account, and then nothing leaves your phone except the exchange-rate requests below.</li>
+<li><b>Sign-in and sync:</b> signing in with Google is optional. If you sign in, we receive your name, email address, profile picture and an account ID, and your shifts, pay settings and money records are stored in the cloud so you can restore them or use them on another phone. Only your account can read them. Each change you make syncs while you are signed in.</li>
+<li><b>Receipts:</b> when you scan a receipt, the photo is read into text on your phone and is not uploaded or kept.</li>
+<li><b>Bank statements:</b> CSV files and statement text you import are read on your phone. Only the transactions you choose to add are saved.</li>
+<li><b>Exchange rates:</b> if you use another currency, Bucks Book asks the Frankfurter exchange-rate service for that currency's rate, at most twice a day while the app is open. Only the currency codes are sent, never amounts or anything about you.</li>
+<li><b>Reminders and alarms:</b> bill reminders and shift alarms are scheduled on your phone. Nothing is sent for them.</li>
+<li><b>App lock:</b> the fingerprint or screen lock is checked by your phone. Bucks Book never sees your fingerprint.</li>
+<li><b>Updates:</b> once a day while the app is open, and when you tap Check for updates, Bucks Book asks Zenith Gen Orbit for the latest version number. Nothing about you is sent. When you tap Update, it opens Bucks Book's page on Zenith in your browser, where you download the new version.</li>
+<li><b>Deleting your data:</b> in Bucks Book, Settings › Cloud sync › Delete my cloud data erases your cloud copy at once and signs you out. Settings › Delete everything erases the copy on your phone, as does uninstalling the app. You can also email us to delete your cloud copy and sign-in (see below).</li>
+</ul>
+<h3>Services Bucks Book uses</h3>
+<ul>
+<li><b>Google:</b> sign-in.</li>
+<li><b>Google Firebase</b> (Cloud Firestore, servers in Singapore): accounts and the synced copy of your shifts and money records.</li>
+<li><b>Google ML Kit</b> (built into the app, runs on your phone): reading receipt photos.</li>
+<li><b>Frankfurter</b> (frankfurter.app): exchange rates, as described above.</li>
+<li><b>Zenith Gen Orbit</b> (Supabase, servers in Singapore, and GitHub): the version check and the update download.</li>
+</ul>

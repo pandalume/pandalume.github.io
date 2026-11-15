@@ -1,0 +1,15 @@
+{
+  "id": "bucks-book",
+  "name": "Bucks Book",
+  "order": 4,
+  "visibility": "family",
+  "tagline": "Your shifts, pay and spending in one place, with a clear safe-to-spend.",
+  "contentNoun": "your shifts and money records",
+  "platforms": {
+    "android": {
+      "package": "com.pandalume.bucksbook",
+      "certSha256": "1d39f35139afb9dd8dae5801e961c1226f8b5f176dc653fe4c0cc1364919474c",
+      "requires": "Android 8.0 or newer"
+    }
+  }
+}
