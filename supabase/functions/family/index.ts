@@ -7,6 +7,8 @@
 // short-lived download links from the private GitHub repository FAMILY_REPO. Nothing is logged.
 //
 // GET  ?action=link&url=<public release file>   no sign-in: its final download address (see below)
+// GET  ?action=version&app=<id>&platform=android  no sign-in: newest version only {name, code, notes, published, page},
+//                                               for apps with their own sign-in (Firebase etc.): no files, no links
 // GET  ?action=catalog                          apps this person may see (no download URLs)
 // GET  ?action=file&app=<id>&path=icon          the icon, or shots/<file> for a screenshot (bytes)
 // GET  ?action=download&app=<id>&name=<file>    { url } : a GitHub link valid for a few minutes
@@ -25,7 +27,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 
 const REPO = Deno.env.get('FAMILY_REPO') ?? 'pandalume/pandalume-family';
-const OWNERS = (Deno.env.get('OWNER_EMAILS') ?? 'tinyaiprojects@gmail.com,dekloongjohn@gmail.com')
+// The owners' Google emails live in the OWNER_EMAILS secret (set by the owner in the Supabase dashboard),
+// never in this file. Without it, only the studio address is an owner.
+const OWNERS = (Deno.env.get('OWNER_EMAILS') || 'tinyaiprojects@gmail.com')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 
@@ -97,6 +101,16 @@ Deno.serve(async req => {
       const r = await fetch(u, { redirect: 'manual', headers: { 'User-Agent': 'zenith-family' } });
       const loc = r.headers.get('location');
       return loc ? json({ url: loc }) : json({ error: `GitHub ${r.status}` }, 502);
+    }
+    // Public: "is there a newer version?" for a family or just-me app, without signing in. Apps that sign in with
+    // something else (Firebase) use it to show "Update available"; the update itself is downloaded from the
+    // Family page, signed in to Zenith. Only the version number and its one-line notes are given out.
+    if (action === 'version') {
+      const platform = q.get('platform') ?? '';
+      const app = (await allApps()).find(a => a.id === q.get('app') && (a.visibility === 'family' || a.visibility === 'owner'));
+      const r = app && latestFor(app, platform);
+      if (!r) return json({ error: 'No such version.' }, 404);
+      return json({ name: r.version, code: r.code ?? null, notes: r.notes, published: r.date, page: 'https://pandalume.github.io/family/#' + app.id });
     }
     const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
     const { data: { user } } = await db.auth.getUser(jwt);
