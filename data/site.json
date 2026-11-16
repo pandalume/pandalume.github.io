@@ -17,7 +17,7 @@
     "supabaseUrl": "https://oeffkydfujcasphguxjr.supabase.co",
     "publishableKey": "sb_publishable_xzUHvWx6GUc-NiL7cAhNHg_CjcC7IbJ",
     "googleClientId": "280148120947-i703otu863388in3usqt5p4qmt5qbpib.apps.googleusercontent.com",
-    "useSigninPage": false
+    "useSigninPage": true
   },
   "legacyBaseUrl": "https://tinypanda-collab.github.io",
   "legacyRepo": "tinypanda-collab/tinypanda-collab.github.io"
