@@ -3,14 +3,17 @@
 <li><b>Notes and handwriting</b>, with the pictures, recordings and files in them, are stored on your device. Nothing leaves your device until you sign in.</li>
 <li><b>Sync (optional):</b> when you sign in with Google, your email address and your notes are stored with your account so they sync between your devices. The contents of locked notes are encrypted on your device with your password before they are uploaded.</li>
 <li><b>Sharing (optional):</b> when you share a note, the note and the email addresses of the people you share it with are stored so they can open it. Stopping sharing removes it.</li>
+<li><b>Handwriting to text and handwriting search</b> are worked out on your device. On Android the app uses Google's ML Kit: the first time a handwriting language is needed, its reader (about 20 MB) is downloaded from Google, and ML Kit sends Google anonymous statistics about how the reader performs. Your handwriting and notes are never sent. On Windows, the handwriting reader built into Windows is used and nothing is sent anywhere.</li>
 <li><b>AI features (optional):</b> AI is off until you add your own key in AI settings. You choose the service: Anthropic (Claude), or any OpenAI-compatible server, including one running on your own computer. The same applies to an optional transcription server. When you tap an AI or transcription action, the text, handwriting image or recording involved is sent to that service under your own key and its terms. Nothing is sent otherwise, and nothing goes to us. Your keys are stored on your device only.</li>
-<li><b>Updates:</b> once a day the app reads a small file from our download site to see whether a new version is out. When you tap Update, the new version downloads inside the app from the same place and is checked before it installs. Nothing about you is sent.</li>
+<li><b>Live transcript (optional, off until you turn it on):</b> when you turn it on in Settings › AI assist, the Android app asks your phone's speech recognition service (usually Google's) to write down what is said while you record. That service may process the audio online, under its own terms. It is not available in the Windows app.</li>
+<li><b>Updates:</b> once a day the app checks Zenith Gen Orbit, our download site, for a new version. Nothing about you is sent. (Versions from before Quillix Note became public ask our server instead and include your sign-in, only to make that check.) When you tap Update, the new version downloads inside the app and is checked before it installs.</li>
 <li><b>Deleting your data:</b> Settings › Cloud sync › Delete my cloud data removes your synced notes, files and shared notes from our server. To delete your sign-in account as well, email us. Uninstalling the app removes the notes from that device.</li>
 </ul>
 <h3>Services Quillix Note uses</h3>
 <ul>
-<li><b>Google:</b> sign-in.</li>
-<li><b>Supabase</b> (servers in Singapore): accounts, synced notes and shared notes.</li>
+<li><b>Google:</b> sign-in, and on Android the ML Kit handwriting reader (downloaded once per language; anonymous performance statistics).</li>
+<li><b>Supabase</b> (servers in Singapore): accounts, synced notes and shared notes (and update checks for versions from before Quillix Note became public).</li>
 <li><b>GitHub</b>, which hosts Zenith Gen Orbit: update information and downloads.</li>
 <li><b>The AI or transcription service you choose</b>, only if you turn it on with your own key.</li>
+<li><b>Your phone's speech recognition service</b> (usually Google), only if you turn on Live transcript.</li>
 </ul>
