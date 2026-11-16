@@ -94,6 +94,42 @@
   },
   "releases": [
     {
+      "version": "1.6.9-beta",
+      "code": 18,
+      "date": "2026-11-16",
+      "status": "live",
+      "notes": "Activity and alerts for the Feed, plus fresher Discover picks and frame touch-ups.",
+      "changes": [
+        "Activity: a bell at the top of Friends shows who reacted to or commented on your posts, and new ones count on the Friends tab",
+        "Get an alert when a friend shares a new post; switch it off for one friend in their profile (their messages still alert)",
+        "Mail › Activity also shows when there's something new on your posts",
+        "Reactions under a post sit snugly together, and your Account page shows your picture in the frame you wear",
+        "Discover's \"5 ingredients or less\" and Drinks rows change more often, with fewer repeats",
+        "The Jade Dragon and Night Market frames have a wider mist; Night Market's is now a night-blue glow",
+        "More reliable on patchy connections: actions no longer hang after the app has been idle for a while"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "com.google.android.c2dm.permission.RECEIVE",
+        "com.jon.bambowl.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.9-beta.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/bambowl-1.6.9-beta/Bambowl-1.6.9-beta.apk",
+          "size": 13040235,
+          "sha256": "bb47dd60b3cecfb39935cc2bdf7b7290a32b384d10700beb558312362a268f8d"
+        }
+      ]
+    },
+    {
       "version": "1.6.8-beta",
       "code": 17,
       "date": "2026-11-16",
