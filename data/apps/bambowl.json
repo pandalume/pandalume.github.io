@@ -94,6 +94,43 @@
   },
   "releases": [
     {
+      "version": "1.6.8-beta",
+      "code": 17,
+      "date": "2026-11-16",
+      "status": "live",
+      "notes": "A Feed for friends: share what you cooked, react, comment and edit your posts.",
+      "changes": [
+        "Feed: a new tab in Friends where you and your friends share what you cooked, with words, up to 4 photos or a recipe",
+        "One React button with 16 reactions to choose from; each post shows its top reactions and how many in all",
+        "Comment on friends' posts and get an alert when someone comments on yours; posts show how many comments they have",
+        "Edit your posts: change the words, remove or add photos, or change the recipe",
+        "Save a recipe from a friend's post straight into your recipes",
+        "Chat bubble styles stay on messages already sent; a newly chosen style only applies to new messages",
+        "Friends now see your avatar frame's animations everywhere",
+        "Smoother screen transitions, and a progress card while a post uploads"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "com.google.android.c2dm.permission.RECEIVE",
+        "com.jon.bambowl.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.8-beta.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/bambowl-1.6.8-beta/Bambowl-1.6.8-beta.apk",
+          "size": 13338895,
+          "sha256": "66bcfe77ec1ed35d2d07e09f83ba7825eb72ff6922b23c844dddf8b6c05aa399"
+        }
+      ]
+    },
+    {
       "version": "1.6.7-beta",
       "code": 16,
       "date": "2026-11-15",
