@@ -2,8 +2,8 @@
 // Deployed to the TinyAi-Personal Supabase project as the "family" edge function. This file is the
 // source of truth; redeploy it from here after changes.
 //
-// Invited people sign in with Google (Supabase Auth). This function checks they are on the invite
-// list (table family_members, or an owner email), then serves the family apps' details, images and
+// Invited people sign in with Google (Supabase Auth, or an app's own Firebase sign-in: see signedIn()). It checks
+// they are on the invite list (table family_members, or an owner email), then serves the family apps' details, images and
 // short-lived download links from the private GitHub repository FAMILY_REPO. Nothing is logged.
 //
 // GET  ?action=link&url=<public release file>   no sign-in: its final download address (see below)
@@ -23,8 +23,34 @@
 // owner can add them with one tap. Zenith's own list: nothing to do with sign-ins inside the apps.
 //
 // Secrets: FAMILY_GITHUB_TOKEN (fine-grained, read-only Contents on FAMILY_REPO only).
-// Optional: FAMILY_REPO (default pandalume/pandalume-family), OWNER_EMAILS (comma-separated).
+// Optional: FAMILY_REPO (default pandalume/pandalume-family), OWNER_EMAILS and FIREBASE_PROJECTS (comma-separated).
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
+import { createRemoteJWKSet, decodeJwt, jwtVerify } from 'npm:jose@5.9.6';
+
+// Who is asking. Zenith's own sign-in is Supabase (TinyAi-Personal), but apps that sign in with Firebase can send
+// their Firebase ID token instead (Authorization: Bearer <user.getIdToken()>). A Firebase token is accepted only
+// from the Firebase projects listed here, with a verified email; the same invite list then applies to that email.
+// New Firebase app: add its project ID here (or in the FIREBASE_PROJECTS secret) and redeploy.
+const FIREBASE_PROJECTS = (Deno.env.get('FIREBASE_PROJECTS') || 'bucks-book,akashic-whisper')
+  .split(',').map(s => s.trim()).filter(Boolean);
+const GOOGLE_KEYS = createRemoteJWKSet(new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'));
+async function signedIn(jwt: string): Promise<{ email: string; name: string | null } | null> {
+  if (!jwt) return null;
+  let claims: Record<string, unknown>;
+  try { claims = decodeJwt(jwt); } catch { return null; }
+  if (typeof claims.iss === 'string' && claims.iss.startsWith('https://securetoken.google.com/')) {
+    const project = String(claims.aud ?? '');
+    if (!FIREBASE_PROJECTS.includes(project)) return null;
+    try {
+      const { payload } = await jwtVerify(jwt, GOOGLE_KEYS, { issuer: `https://securetoken.google.com/${project}`, audience: project });
+      if (typeof payload.email !== 'string' || payload.email_verified !== true) return null;
+      return { email: payload.email.toLowerCase(), name: typeof payload.name === 'string' ? payload.name.slice(0, 80) : null };
+    } catch { return null; }
+  }
+  const { data: { user } } = await db.auth.getUser(jwt);
+  if (!user?.email) return null;
+  return { email: user.email.toLowerCase(), name: String(user.user_metadata?.full_name ?? user.user_metadata?.name ?? '').slice(0, 80) || null };
+}
 
 const REPO = Deno.env.get('FAMILY_REPO') ?? 'pandalume/pandalume-family';
 // The owners' Google emails live in the OWNER_EMAILS secret (set by the owner in the Supabase dashboard),
@@ -113,9 +139,9 @@ Deno.serve(async req => {
       return json({ name: r.version, code: r.code ?? null, notes: r.notes, published: r.date, page: 'https://pandalume.github.io/family/#' + app.id });
     }
     const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-    const { data: { user } } = await db.auth.getUser(jwt);
-    if (!user?.email) return json({ error: 'Sign in first.' }, 401);
-    const email = user.email.toLowerCase(), owner = OWNERS.includes(email);
+    const who = await signedIn(jwt);
+    if (!who) return json({ error: 'Sign in first.' }, 401);
+    const email = who.email, owner = OWNERS.includes(email);
     let member: { apps: string[] } | null = owner ? { apps: ['*'] } : null;
     if (!member) {
       const { data } = await db.from('family_members').select('apps').eq('email', email).maybeSingle();
@@ -161,7 +187,7 @@ Deno.serve(async req => {
     if (!member) {
       // Not on the list (yet): remember the request so the owner can add them with one tap.
       if (action === 'catalog') {
-        const name = String(user.user_metadata?.full_name ?? user.user_metadata?.name ?? '').slice(0, 80) || null;
+        const name = who.name;
         const { data: was } = await db.from('family_requests').select('visits').eq('email', email).maybeSingle();
         await db.from('family_requests').upsert({ email, name, last_seen: new Date().toISOString(), visits: (was?.visits ?? 0) + 1 });
       }
