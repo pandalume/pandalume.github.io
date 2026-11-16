@@ -6,7 +6,7 @@
   "baseUrl": "https://pandalume.github.io",
   "repo": "pandalume/pandalume.github.io",
   "contact": "tinyaiprojects@gmail.com",
-  "privacyUpdated": "2026-11-16",
+  "privacyUpdated": "2026-11-17",
   "legacyFeeds": {
     "apps/bambowl.json": "bambowl"
   },
@@ -15,7 +15,9 @@
   "family": {
     "repo": "pandalume/pandalume-family",
     "supabaseUrl": "https://oeffkydfujcasphguxjr.supabase.co",
-    "publishableKey": "sb_publishable_xzUHvWx6GUc-NiL7cAhNHg_CjcC7IbJ"
+    "publishableKey": "sb_publishable_xzUHvWx6GUc-NiL7cAhNHg_CjcC7IbJ",
+    "googleClientId": "280148120947-i703otu863388in3usqt5p4qmt5qbpib.apps.googleusercontent.com",
+    "useSigninPage": false
   },
   "legacyBaseUrl": "https://tinypanda-collab.github.io",
   "legacyRepo": "tinypanda-collab/tinypanda-collab.github.io"

@@ -4,6 +4,8 @@
   const root = document.getElementById('family');
   if (!root) return;
   const SB = root.dataset.supabase, KEY = root.dataset.key, CONTACT = root.dataset.contact;
+  const ZENITH_SIGNIN = root.dataset.signin === 'zenith' && window.zgGoogle;      // Google sign-in via /signin/
+  let back = ZENITH_SIGNIN ? window.zgGoogle.finish(SB, KEY) : Promise.resolve(null);
   const FN = SB + '/functions/v1/family', HOME = location.origin + '/family/', STORE = 'zg-family-session';
   const KINDS = { apk: 'android', setup: 'windows', portable: 'windows' };
   const LABEL = { apk: 'Download for Android', setup: 'Windows installer', portable: 'Windows portable' };
@@ -49,6 +51,7 @@
 
   function signIn() {
     if (jump) sessionStorage.setItem('zg-family-jump', jump);
+    if (ZENITH_SIGNIN) return window.zgGoogle.start(HOME);
     location.href = `${SB}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(HOME)}`;
   }
   async function signOut() {
@@ -268,6 +271,9 @@ ${app ? detailView(app) : listView()}`);
 
   async function start() {
     me = null;
+    const got = await back.catch(() => null); back = Promise.resolve(null);
+    if (got?.session) { session = got.session; save(session); jump = sessionStorage.getItem('zg-family-jump') || jump; try { sessionStorage.removeItem('zg-family-jump'); } catch { /* ignore */ } }
+    if (got?.error && !session) { signedOut(); return notice(got.error); }
     if (!session) return signedOut();
     set('<p class="muted">Loading your apps…</p>');
     try {

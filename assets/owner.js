@@ -6,6 +6,8 @@
   if (!root) return;
   const SB = root.dataset.supabase, KEY = root.dataset.key, REPO = root.dataset.repo;
   const FN = SB + '/functions/v1/family', HOME = location.origin + '/owner/', STORE = 'zg-family-session';
+  const ZENITH_SIGNIN = root.dataset.signin === 'zenith' && window.zgGoogle;      // Google sign-in via /signin/
+  let back = ZENITH_SIGNIN ? window.zgGoogle.finish(SB, KEY) : Promise.resolve(null);
   const data = JSON.parse(document.getElementById('owner-data').textContent);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const load = () => { try { return JSON.parse(localStorage.getItem(STORE)); } catch { return null; } };
@@ -28,7 +30,7 @@
     save(session);
     return session.access_token;
   }
-  const signIn = () => { location.href = `${SB}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(HOME)}`; };
+  const signIn = () => { if (ZENITH_SIGNIN) return window.zgGoogle.start(HOME); location.href = `${SB}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(HOME)}`; };
 
   async function share(name, url) {
     const text = `${name}: ${url}`;
@@ -132,6 +134,8 @@ ${rs.length ? `<ul class="owner-apps">${rs.map(row).join('')}</ul>` : '<p class=
   }
 
   async function start() {
+    const got = await back.catch(() => null); back = Promise.resolve(null);
+    if (got?.session) { session = got.session; save(session); }
     const t = await token();
     if (!t) {
       root.innerHTML = `<div class="card family-signin"><h1>Zenith Owner</h1><p>For the owner of Zenith Gen Orbit. Sign in with your owner Google account.</p>

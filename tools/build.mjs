@@ -270,10 +270,10 @@ function familyPage() {
     title: `Family & friends · ${site.name}`, description: `Apps ${site.developer} shares with family and friends.`, noindex: true,
     canonical: site.baseUrl + '/family/',
     csp: `default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self' ${f.supabaseUrl}; base-uri 'none'; form-action 'none'`,
-    scripts: `\n<script src="${A('/assets/family.js')}" defer></script>`,
+    scripts: `${f.useSigninPage ? `\n<script src="${A('/assets/gsignin.js')}" defer></script>` : ''}\n<script src="${A('/assets/family.js')}" defer></script>`,
     body: `<section class="hero"><h1>Family &amp; friends</h1>
 <p>Apps ${esc(site.developer)} shares with people it knows. Sign in with the Google account you were invited with.</p></section>
-<div id="family" data-supabase="${esc(f.supabaseUrl)}" data-key="${esc(f.publishableKey)}" data-contact="${esc(site.contact)}">
+<div id="family" data-supabase="${esc(f.supabaseUrl)}" data-key="${esc(f.publishableKey)}" data-contact="${esc(site.contact)}"${f.useSigninPage ? ' data-signin="zenith"' : ''}>
 <noscript><p>The Family page needs JavaScript.</p></noscript>
 <p class="muted" data-state="loading">Loading…</p></div>
 <template id="fam-share-qr">${qrSvg(site.baseUrl + '/family/', 200)}</template>
@@ -282,6 +282,20 @@ function familyPage() {
   return { id: a.id, name: a.name, tagline: a.tagline, category: a.category || '', kind: a.kind || 'app', group: a.visibility, platforms: Object.keys(a.platforms).sort((x, y) => (x === 'android' ? 0 : 1) - (y === 'android' ? 0 : 1)), version: latest?.version || '', icon: iconOf(a.id), order: a.order ?? 99 };
 })).replace(/</g, '\\u003c')}</script>
 <p class="small muted">Signing in here tells our server only your email address, to check the invite list. See the <a href="/privacy.html">privacy policy</a>.</p>`
+  });
+}
+
+// Zenith's sign-in page (/signin/): Google sign-in that stays on pandalume.github.io (see assets/signin.js).
+// Used by the Family and Owner pages and by the apps (Studio Standards §11). Built when site.json has
+// family.googleClientId (the public ID of the Google sign-in client).
+function signinPage() {
+  return page({
+    title: `Sign in · ${site.name}`, description: `Sign in with Google to ${site.name} and its apps.`, noindex: true,
+    csp: "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'",
+    scripts: `\n<script src="${A('/assets/signin.js')}" defer></script>`,
+    body: `<section class="hero"><h1>Sign in</h1><p>With your Google account, for ${esc(site.name)} and ${esc(site.developer)}'s apps.</p></section>
+<div id="signin" data-client="${esc(site.family.googleClientId)}"><noscript><p>Signing in needs JavaScript.</p></noscript><p class="muted">Opening Google sign-in…</p></div>
+<p class="small muted">Google tells us only your name, email address and profile picture. See the <a href="/privacy.html">privacy policy</a>.</p>`
   });
 }
 
@@ -305,8 +319,8 @@ function ownerPage() {
   return page({
     title: `Owner · ${site.name}`, description: 'For the owner of Zenith Gen Orbit.', noindex: true,
     csp: `default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self' ${f.supabaseUrl} https://api.github.com; manifest-src 'self'; base-uri 'none'; form-action 'none'`,
-    scripts: `\n<link rel="manifest" href="/owner/manifest.webmanifest">\n<script src="/assets/qrcode.js?v=1" defer></script>\n<script src="${A('/assets/owner.js')}" defer></script>`,
-    body: `<div id="owner" data-supabase="${esc(f.supabaseUrl)}" data-key="${esc(f.publishableKey)}" data-repo="${esc(site.repo)}"><p class="muted">Loading…</p></div>
+    scripts: `\n<link rel="manifest" href="/owner/manifest.webmanifest">\n<script src="/assets/qrcode.js?v=1" defer></script>${f.useSigninPage ? `\n<script src="${A('/assets/gsignin.js')}" defer></script>` : ''}\n<script src="${A('/assets/owner.js')}" defer></script>`,
+    body: `<div id="owner" data-supabase="${esc(f.supabaseUrl)}" data-key="${esc(f.publishableKey)}" data-repo="${esc(site.repo)}"${f.useSigninPage ? ' data-signin="zenith"' : ''}><p class="muted">Loading…</p></div>
 <script type="application/json" id="owner-data">${JSON.stringify({ tiles, rows }).replace(/</g, '\\u003c')}</script>`
   });
 }
@@ -569,6 +583,7 @@ write('terms.html', docPage('terms'));
 write('404.html', page({ title: `Not found · ${site.name}`, description: 'Page not found', noindex: true, body: `<section class="hero"><h1>Page not found</h1><p>That page doesn't exist, or it moved.</p></section><ul class="updates">${listed.map(a => `<li><a class="upd" href="/apps/${a.id}/"><img class="icon" src="${iconOf(a.id)}" alt="" width="44" height="44"><span><b>${esc(a.name)}</b><br><span class="small">${esc(a.tagline)}</span></span></a></li>`).join('')}</ul><p><a href="/">All apps</a></p>` }));
 write('updates/index.html', updatesPage());
 if (site.family) write('family/index.html', familyPage());
+if (site.family?.googleClientId) write('signin/index.html', signinPage());
 fs.copyFileSync(path.join(ROOT, 'tools', 'vendor', 'qrcode.cjs'), path.join(OUT, 'assets', 'qrcode.js'));   // for the owner app
 if (site.family) {
   write('owner/index.html', ownerPage());
