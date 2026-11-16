@@ -142,7 +142,7 @@ ${p === 'android' ? '<p class="small dl-hint">Chrome will ask <b>"File might be 
 <div class="chips">${chips(app)}${app.category ? `<span class="chip ghost">${esc(app.category)}</span>` : ''}</div></div></section>
 ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
 <section class="dls">${panels}</section>
-${shots.length ? `<section><h2 class="sec">Screenshots</h2><div class="shots style-${esc(app.shotStyle || 'clean')}">${shots.map(s => `<span class="shot${s.wide ? ' wide' : ''}"><img alt="" data-img="${esc(app.id)}|shots/${esc(s.file)}"></span>`).join('')}</div></section>` : ''}
+${shots.length ? `<section><h2 class="sec">Screenshots</h2><div class="shots style-${esc(app.shotStyle || 'clean')}" data-gallery>${shots.map((s, n) => `<button type="button" class="shot${s.wide ? ' wide' : ''}" aria-label="Enlarge screenshot ${n + 1}"><img alt="" data-img="${esc(app.id)}|shots/${esc(s.file)}"></button>`).join('')}</div></section>` : ''}
 <section><h2 class="sec">About</h2>${(app.description || []).map(p => `<p>${esc(p)}</p>`).join('')}
 ${(app.features || []).length ? `<ul class="feat">${app.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
 ${(app.tags || []).length ? `<div class="chips tags">${app.tags.map(t => `<span class="chip ghost">${esc(t)}</span>`).join('')}</div>` : ''}</section>

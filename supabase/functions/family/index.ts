@@ -128,6 +128,15 @@ Deno.serve(async req => {
       const loc = r.headers.get('location');
       return loc ? json({ url: loc }) : json({ error: `GitHub ${r.status}` }, 502);
     }
+    // An app that has moved from family/just-me to public: older installs still ask here, so answer with its public
+    // feed (no sign-in needed, public links). Family apps have no public feed, so this never exposes one.
+    if (action === 'feed' || action === 'version') {
+      const id = q.get('app') ?? '', platform = q.get('platform') ?? '';
+      if (/^[a-z0-9-]+$/.test(id) && /^(android|windows)$/.test(platform)) {
+        const pub = await fetch(`https://pandalume.github.io/api/${id}/${platform}.json`, { headers: { 'User-Agent': 'zenith-family' } }).catch(() => null);
+        if (pub?.ok) return json(await pub.json());
+      }
+    }
     // Public: "is there a newer version?" for a family or just-me app, without signing in. Apps that sign in with
     // something else (Firebase) use it to show "Update available"; the update itself is downloaded from the
     // Family page, signed in to Zenith. Only the version number and its one-line notes are given out.

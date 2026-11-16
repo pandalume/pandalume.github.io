@@ -9,6 +9,7 @@
 //   node tools/zgs.mjs verify [--deep]
 //   node tools/zgs.mjs mine <app> [android|windows]   don't count a download you made yourself
 //   node tools/zgs.mjs move <app> family|owner [--delete-public]   family & friends, or "just me"
+//   node tools/zgs.mjs move <app> public|unlisted   make a family / just-me app public (or link only) again
 //   node tools/zgs.mjs listing <app>     update the page (text, events, screenshots) without a release
 //   node tools/zgs.mjs reset-counts [app] start download counts from 0 (every app, or just one)
 //
@@ -638,7 +639,8 @@ async function verify() {
 async function move() {
   const app = appById(pos[0] || stop('Usage: zgs move <app> family [--delete-public]'));
   const to = pos[1];
-  if (!['family', 'owner'].includes(to)) stop('Usage: zgs move <app> family   or   zgs move <app> owner   (owner = "just me")');
+  if (to === 'public' || to === 'unlisted') return moveOut(app, to);
+  if (!['family', 'owner'].includes(to)) stop('Usage: zgs move <app> family | owner | public | unlisted   (owner = "just me", unlisted = link only)');
   if (PRIVATE_REPO(app.visibility) && app.visibility !== to) {           // already private: just switch who sees it
     const fam = await familyApp(app);
     if (!(await confirm(`Make ${app.name} ${to === 'owner' ? '"just me" (only you see it)' : 'family & friends'}?`))) stop('Cancelled.');
@@ -712,6 +714,79 @@ async function move() {
       if (pub) { await gh('DELETE', `/releases/${pub.id}`); say(c.dim(`  deleted public release ${pub.tag_name}`)); }
     }
   } else say(c.dim(`The public GitHub releases of ${app.name} still exist (nothing links to them). Remove them later with: zgs move ${app.id} family --delete-public`));
+}
+
+/** zgs move <app> public|unlisted: the reverse of moving to family. Copies the current files from the private
+ *  repository to public releases (checked byte for byte), puts the app's full data and its Store listing (text,
+ *  icon, screenshots, privacy and terms) back on the website, and hides it from the Family page. The private copies
+ *  stay as a backup. Older versions keep their notes. */
+async function moveOut(app0, to) {
+  if (!PRIVATE_REPO(app0.visibility)) {                                // public <-> link only: just the one word
+    if (app0.visibility === to) stop(`${app0.name} is already ${to === 'public' ? 'public' : 'link only'}.`);
+    if (!(await confirm(`Make ${app0.name} ${to === 'public' ? 'public (listed on Zenith and Google)' : 'link only (not listed)'}?`))) stop('Cancelled.');
+    git('pull', '--ff-only', '--quiet');
+    const raw = readJson(app0._file); raw.visibility = to; writeJson(app0._file, raw);
+    _data = null; loadData();
+    git('add', app0._file); git('commit', '--quiet', '-m', `${app0.name} is now ${to === 'public' ? 'public' : 'link only'}`); pushWithRetry();
+    return say(c.ok(`Done. ${SITE().baseUrl}/apps/${app0.id}/`));
+  }
+  const fam = await familyApp(app0);
+  const raw = Object.fromEntries(Object.entries(fam).filter(([k]) => k !== '_file'));
+  const folder = CONFIG.apps[app0.id] && path.join(CONFIG.finishedApps, CONFIG.apps[app0.id]);
+  const L = folder && readListing(folder);
+  if (!L) stop(`${app0.name} needs its Store listing folder (with listing.json, icon and screenshots) to go ${to}.`);
+  if (L.l.visibility && L.l.visibility !== to) stop(`${path.join(L.dir, 'listing.json')} says "visibility": "${L.l.visibility}". Change it to "${to}" first, so the next publish keeps it ${to}.`);
+  policyGuard({ ...app0, visibility: to }, L);
+  const current = new Set(Object.keys(raw.platforms || {}).map(p => latestFor(raw, p)).filter(Boolean));
+  say(c.b(`\nMake ${app0.name} ${to === 'public' ? 'public (listed on Zenith and Google)' : 'link only'}`));
+  say(`  current files copied to the public releases: ${[...current].flatMap(r => r.files.map(f => f.name)).join(', ') || 'none'}`);
+  say(`  page, policy and Data safety from ${c.dim(L.dir)}`);
+  say(`  the Family page stops showing it; the private copies stay as a backup`);
+  if (!(await confirm('Go ahead?'))) stop('Cancelled.');
+  git('pull', '--ff-only', '--quiet');
+  const tmp = fs.mkdtempSync(path.join(process.env.TEMP || process.env.TMPDIR || '/tmp', 'zgs-'));
+  for (const r of raw.releases || []) {
+    if (!current.has(r)) continue;
+    const tag = releaseTag(app0, r.version);
+    let rel = await gh('GET', `/releases/tags/${encodeURIComponent(tag)}`);
+    if (!rel) rel = await gh('POST', '/releases', JSON.stringify({ tag_name: tag, target_commitish: git('rev-parse', 'HEAD'), name: `${app0.name} ${r.version}`, body: r.notes, make_latest: 'false' }), { 'Content-Type': 'application/json' });
+    for (const f of r.files) {
+      let asset = rel.assets.find(a => a.name === f.name && a.state === 'uploaded' && a.size === f.size);
+      if (!asset) {
+        say(`  copying ${f.name} (${mb(f.size)})…`);
+        const local = path.join(tmp, f.name);
+        const meta = await fetch(f.url, { redirect: 'manual', headers: { Accept: 'application/octet-stream', Authorization: `Bearer ${tokenFor(f.url)}`, 'User-Agent': 'zgs' } });
+        const loc = meta.headers.get('location') || stop(`Couldn't download the private ${f.name}: GitHub ${meta.status}`);
+        const res = await fetch(loc, { headers: { 'User-Agent': 'zgs' } });
+        if (!res.ok) stop(`Couldn't download the private ${f.name}: ${res.status}`);
+        await new Promise((ok, bad) => { const w = fs.createWriteStream(local); (async () => { for await (const ch of res.body) w.write(ch); w.end(); })().catch(bad); w.on('finish', ok); });
+        if (sha256File(local) !== f.sha256) stop(`${f.name} doesn't match its recorded SHA-256. Nothing moved.`);
+        asset = await uploadAsset(rel.upload_url, local, f.name);
+      }
+      const got = await downloadSha(asset.browser_download_url);
+      if (got.sha256 !== f.sha256) stop(`The public copy of ${f.name} doesn't match. Nothing moved.`);
+      f.url = asset.browser_download_url; delete f.assetId; f.selfDownloads = 1;
+      say(c.ok(`  ✓ ${f.name}`));
+    }
+  }
+  fs.rmSync(tmp, { recursive: true, force: true });
+  for (const r of raw.releases || []) if (!current.has(r)) for (const f of r.files) delete f.assetId;
+  raw.visibility = to;
+  applyListing(raw, L, false);
+  const errs = validate(SITE(), [{ ...raw, _file: app0._file }]);
+  if (errs.length) stop('The app data would be invalid:\n  ' + errs.join('\n  '));
+  writeJson(app0._file, raw);
+  const touched = [app0._file, path.join('content', 'apps', app0.id)];
+  _data = null; loadData();
+  say('  checking the website builds…');
+  const chk = run(process.execPath, [path.join(ROOT, 'tools', 'test.mjs')]);
+  if (chk.status !== 0) { git('checkout', '--', ...touched); stop('The website would not build, so nothing was pushed. The public copies of the files are kept; run this again once it is fixed (ask the hub chat).\n' + (chk.stdout + chk.stderr).split('\n').filter(l => /FAIL|Error/.test(l)).slice(0, 6).join('\n')); }
+  // the private copy says where the app went, so the Family page and Owner stop listing it there
+  await fPut(`apps/${app0.id}.json`, Buffer.from(JSON.stringify({ ...raw, visibility: to }, null, 2) + '\n'), `${app0.name} moved to ${to} Zenith (kept as a backup)`);
+  git('add', '-A', '--', ...touched);
+  git('commit', '--quiet', '-m', `${app0.name} is now ${to === 'public' ? 'public' : 'link only'}`);
+  pushWithRetry();
+  say(c.ok(`\n${app0.name} is ${to === 'public' ? 'public' : 'link only'}: ${SITE().baseUrl}/apps/${app0.id}/ (live in about a minute).`));
 }
 
 /** Adds 1 to selfDownloads for each URL (one commit), so these downloads aren't counted as people. */

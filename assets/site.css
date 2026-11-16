@@ -154,9 +154,13 @@ pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px
 
 /* lightbox */
 .lightbox { position: fixed; inset: 0; z-index: 40; background: rgba(4, 6, 10, .92); display: flex; align-items: center; justify-content: center; padding: 16px; }
-.lightbox img { max-width: 100%; max-height: 100%; border-radius: 14px; }
+.lightbox { flex-direction: column; gap: 14px; padding: 68px 16px 18px; }
+.lightbox img { max-width: 100%; max-height: calc(100% - 62px); border-radius: 14px; object-fit: contain; }
 .lightbox button { position: absolute; font: inherit; font-size: 22px; line-height: 1; color: var(--text); background: rgba(22, 31, 48, .9); border: 1px solid var(--line2); border-radius: 99px; width: 44px; height: 44px; cursor: pointer; }
-.lb-close { top: 14px; right: 14px; } .lb-prev { left: 14px; } .lb-next { right: 14px; }
+.lb-close { top: 14px; right: 14px; z-index: 1; display: flex; align-items: center; justify-content: center; }
+.lb-bar { display: flex; align-items: center; justify-content: center; gap: 18px; }
+.lightbox .lb-bar button { position: static; display: flex; align-items: center; justify-content: center; }
+.lb-count { font-size: 13px; color: var(--muted); min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; }
 
 /* phone download bar */
 .getbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; align-items: center; gap: 10px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: rgba(11, 15, 23, .96); backdrop-filter: blur(10px); border-top: 1px solid var(--line2); transform: translateY(110%); transition: transform .25s; }

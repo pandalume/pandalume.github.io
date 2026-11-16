@@ -92,20 +92,28 @@ document.addEventListener('DOMContentLoaded', () => {
   initGallery();
 });
 
-// Tap a screenshot to see it large; arrows, swipe and Esc work.
+// Tap a screenshot to see it large; arrows, swipe and Esc work, and the phone's Back button closes it.
+// Works for every gallery on any page (public app pages, and the Family page, which draws its own later).
 function initGallery() {
-  const g = $('[data-gallery]'); if (!g) return;
-  const imgs = $$('img', g).map(i => i.src);
-  let i = 0, box = null, x0 = null;
-  const show = n => { i = (n + imgs.length) % imgs.length; $('img', box).src = imgs[i]; };
-  const close = () => { box?.remove(); box = null; document.removeEventListener('keydown', key); };
+  let imgs = [], i = 0, box = null, x0 = null, pushed = false;
+  const show = n => { i = (n + imgs.length) % imgs.length; $('img', box).src = imgs[i]; const c = $('.lb-count', box); if (c) c.textContent = `${i + 1} / ${imgs.length}`; };
   const key = e => { if (e.key === 'Escape') close(); if (e.key === 'ArrowRight') show(i + 1); if (e.key === 'ArrowLeft') show(i - 1); };
-  $$('.shot', g).forEach((b, n) => b.addEventListener('click', () => {
+  function shut() { box?.remove(); box = null; document.removeEventListener('keydown', key); }
+  function close() { if (!box) return; shut(); if (pushed) { pushed = false; history.back(); } }
+  window.addEventListener('popstate', () => { if (box) { pushed = false; shut(); } });
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-gallery] .shot');
+    if (!b) return;
+    const g = b.closest('[data-gallery]'), all = $$('.shot', g);
+    imgs = all.map(s => $('img', s)?.src || '').filter(Boolean);
+    if (!imgs.length) return;
     box = document.createElement('div'); box.className = 'lightbox'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Screenshot');
-    box.innerHTML = '<img alt=""><button class="lb-close" aria-label="Close">×</button>' + (imgs.length > 1 ? '<button class="lb-prev" aria-label="Previous">‹</button><button class="lb-next" aria-label="Next">›</button>' : '');
-    box.addEventListener('click', e => { if (e.target === box || e.target.matches('.lb-close')) close(); if (e.target.matches('.lb-next')) show(i + 1); if (e.target.matches('.lb-prev')) show(i - 1); });
-    box.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
-    box.addEventListener('touchend', e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) show(i + (dx < 0 ? 1 : -1)); x0 = null; });
-    document.body.append(box); document.addEventListener('keydown', key); show(n); $('.lb-close', box).focus();
-  }));
+    box.innerHTML = '<img alt=""><button type="button" class="lb-close" aria-label="Close">×</button>' + (imgs.length > 1 ? '<div class="lb-bar"><button type="button" class="lb-prev" aria-label="Previous">‹</button><span class="lb-count"></span><button type="button" class="lb-next" aria-label="Next">›</button></div>' : '');
+    box.addEventListener('click', ev => { if (ev.target === box || ev.target.matches('.lb-close')) close(); if (ev.target.matches('.lb-next')) show(i + 1); if (ev.target.matches('.lb-prev')) show(i - 1); });
+    box.addEventListener('touchstart', ev => { x0 = ev.touches[0].clientX; }, { passive: true });
+    box.addEventListener('touchend', ev => { if (x0 == null) return; const dx = ev.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) show(i + (dx < 0 ? 1 : -1)); x0 = null; });
+    document.body.append(box); document.addEventListener('keydown', key);
+    try { history.pushState({ zgLightbox: 1 }, ''); pushed = true; } catch { pushed = false; }
+    show(Math.max(0, all.indexOf(b))); $('.lb-close', box).focus();
+  });
 }
