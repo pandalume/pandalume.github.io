@@ -102,6 +102,61 @@
   },
   "releases": [
     {
+      "version": "1.5.2",
+      "code": 14,
+      "date": "2026-11-17",
+      "status": "live",
+      "notes": "A simpler Settings page and note menu, and every note can have its own style.",
+      "changes": [
+        "Settings is now one page of short groups (Sync, General, Advanced, AI assist), with a switch for anything you turn on or off",
+        "Default note style sets how new notes start: one long page or separate pages, page style and colour, orientation, text size, font, line spacing and text colour",
+        "Every note has its own Note style in the ⋯ menu, and can pass its style on to new notes",
+        "Separate pages: writing moves on to a new page when one fills up, and pages added that way go away when emptied",
+        "The ⋯ menu in a note is a short list, with Pin, Lock, Print and Delete one tap away",
+        "Live transcript while recording now stays off until you turn it on in AI assist",
+        "A fresh About screen that shows what Quillix Note can do",
+        "45 page styles in five groups, live previews while you choose a style, toolbars you reorder by dragging, and a ⋮ menu on the notes list for view, sort and select"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.FOREGROUND_SERVICE",
+        "com.jon.quillixnote.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Quillix-Note-Android-1.5.2.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.2/Quillix-Note-Android-1.5.2.apk",
+          "size": 23873780,
+          "sha256": "df785582a31654c88ad35122cccab1d1fbb7278cc9f1cecc8167814504c2c3bd"
+        },
+        {
+          "kind": "portable",
+          "name": "Quillix-Note-Portable-1.5.2.exe",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.2/Quillix-Note-Portable-1.5.2.exe",
+          "size": 117801369,
+          "sha256": "36d1fecda8dd47de330377180528365e5973dc86c6eb486e9fe8b016d5d78eb7"
+        },
+        {
+          "kind": "setup",
+          "name": "Quillix-Note-Setup-1.5.2.exe",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.2/Quillix-Note-Setup-1.5.2.exe",
+          "size": 118128717,
+          "sha256": "c3d1aeb11962e27e2d9100fd828a8e1710a8f23f4e17b80ae6829f1607cbe98a"
+        }
+      ]
+    },
+    {
       "version": "1.5.1",
       "code": 13,
       "date": "2026-10-31",
