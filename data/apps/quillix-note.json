@@ -102,6 +102,57 @@
   },
   "releases": [
     {
+      "version": "1.5.3",
+      "code": 15,
+      "date": "2026-11-17",
+      "status": "live",
+      "notes": "A clearer Google sign-in, and update checks for everyone.",
+      "changes": [
+        "Signing in with Google now opens the Pandalume sign-in page in your browser, then brings you straight back to the app",
+        "Closing the sign-in page or cancelling on Google's screen just leaves your notes on this device, with a short message",
+        "If sign-in does not finish, you can try again from the same message",
+        "Checking for updates no longer needs you to be signed in"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.FOREGROUND_SERVICE",
+        "com.jon.quillixnote.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Quillix-Note-Android-1.5.3.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.3/Quillix-Note-Android-1.5.3.apk",
+          "size": 23875036,
+          "sha256": "fafe0ab253f054a9cda51f3c86c7ca167f69b102ad9fe0af86ed3defc6ec28a7"
+        },
+        {
+          "kind": "portable",
+          "name": "Quillix-Note-Portable-1.5.3.exe",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.3/Quillix-Note-Portable-1.5.3.exe",
+          "size": 117803537,
+          "sha256": "7a8234ab398bc0e8f329e8e871d4599762d605d74c3a32aeadb406591cf474f9"
+        },
+        {
+          "kind": "setup",
+          "name": "Quillix-Note-Setup-1.5.3.exe",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.3/Quillix-Note-Setup-1.5.3.exe",
+          "size": 118130805,
+          "sha256": "0fb8bc0d303b0658996a591a47ad60486c029da2b43131ab045c64083c6f99bd"
+        }
+      ]
+    },
+    {
       "version": "1.5.2",
       "code": 14,
       "date": "2026-11-17",
