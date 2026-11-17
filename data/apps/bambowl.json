@@ -94,6 +94,38 @@
   },
   "releases": [
     {
+      "version": "1.6.10-beta",
+      "code": 19,
+      "date": "2026-11-17",
+      "status": "live",
+      "notes": "Google sign-in now goes through Pandalume Studio's own sign-in page.",
+      "changes": [
+        "Sign in with Google opens our own sign-in page, so Google's screen shows who is asking",
+        "Same Google account, same recipes, friends and Bambits: nothing to move, and you stay signed in",
+        "Cancelling on Google's screen simply brings you back to Bambowl"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "com.google.android.c2dm.permission.RECEIVE",
+        "com.jon.bambowl.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.10-beta.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/bambowl-1.6.10-beta/Bambowl-1.6.10-beta.apk",
+          "size": 13040875,
+          "sha256": "3f45edfa627f34d3dcd8eb12ea071f3d74300500eea22e62f15525753a527dac"
+        }
+      ]
+    },
+    {
       "version": "1.6.9-beta",
       "code": 18,
       "date": "2026-11-16",
