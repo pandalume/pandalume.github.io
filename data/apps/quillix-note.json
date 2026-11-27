@@ -102,6 +102,58 @@
   },
   "releases": [
     {
+      "version": "1.5.4",
+      "code": 16,
+      "date": "2026-11-27",
+      "status": "live",
+      "notes": "Smoother text selection on phones, and notes laid out properly on computers.",
+      "changes": [
+        "On phones, dragging a selection handle past the keyboard or toolbar keeps scrolling the note, without the selection jumping",
+        "On computers, a note fills the window at 100% and text keeps a comfortable reading size",
+        "Zoom buttons move in 10% steps, and computers get a zoom slider for any size from 35% to 350%",
+        "Changing the text size of a long selection keeps your place instead of jumping to the end of the note",
+        "Very long notes no longer go blank after their text size is changed"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.FOREGROUND_SERVICE",
+        "com.jon.quillixnote.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Quillix-Note-Android-1.5.4.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.4/Quillix-Note-Android-1.5.4.apk",
+          "size": 23880500,
+          "sha256": "d67d7478074a63f834fc644e05601abf640619ce61e7915c482caeb6fa2e40bb"
+        },
+        {
+          "kind": "portable",
+          "name": "Quillix-Note-Portable-1.5.4.exe",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.4/Quillix-Note-Portable-1.5.4.exe",
+          "size": 117807707,
+          "sha256": "ed81976b4ab78ab17b9f8ce565068724015a4fd0d21659a555858d93db1898a6"
+        },
+        {
+          "kind": "setup",
+          "name": "Quillix-Note-Setup-1.5.4.exe",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/quillix-note-1.5.4/Quillix-Note-Setup-1.5.4.exe",
+          "size": 118135058,
+          "sha256": "54cabd5e407e393b392b7bc7f8c6292b5a06667f5c73b2e77ecf8e8a8ad73e7e"
+        }
+      ]
+    },
+    {
       "version": "1.5.3",
       "code": 15,
       "date": "2026-11-17",
