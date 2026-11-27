@@ -94,6 +94,40 @@
   },
   "releases": [
     {
+      "version": "1.6.11-beta",
+      "code": 20,
+      "date": "2026-11-27",
+      "status": "live",
+      "notes": "New looks for collectibles and bubbles, and more recipes to discover.",
+      "changes": [
+        "Discover now picks from many more recipe sites, so fresh recipes come round more often",
+        "Boba Pal, Fortune Friend, Pudding Pal, Mochi Moon, Onigiri Smile and Tempura Tumble have been remade",
+        "Rainbow Ramen and Family Table frames have new animations made for their own art",
+        "Jade Dragon Scroll, Night Market Lanterns and Rainbow Broth bubbles have new art with their own glows and sparkles",
+        "Framed bubbles now fit the normal message size, and short messages stay clear of the decorations"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "com.google.android.c2dm.permission.RECEIVE",
+        "com.jon.bambowl.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "files": [
+        {
+          "kind": "apk",
+          "name": "Bambowl-1.6.11-beta.apk",
+          "url": "https://github.com/pandalume/pandalume.github.io/releases/download/bambowl-1.6.11-beta/Bambowl-1.6.11-beta.apk",
+          "size": 16561642,
+          "sha256": "4160a9ba5b9a44b734b3450bdd5a827d158d89e20c2f273ea5798b1411009596"
+        }
+      ]
+    },
+    {
       "version": "1.6.10-beta",
       "code": 19,
       "date": "2026-11-17",
