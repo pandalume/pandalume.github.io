@@ -1,6 +1,8 @@
 // Small conveniences. Everything works without this script; it only adds comfort.
 const $ = (s, el = document) => el.querySelector(s), $$ = (s, el = document) => [...el.querySelectorAll(s)];
-const ua = navigator.userAgent, MINE = /Android/i.test(ua) ? 'android' : /Windows/i.test(ua) ? 'windows' : '';
+const ua = navigator.userAgent, IOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+// iPhone, iPad, Mac and Linux can't run the APK or the Windows app, so their own platform is the web app (if there is one)
+const MINE = /Android/i.test(ua) ? 'android' : /Windows/i.test(ua) ? 'windows' : 'web';
 
 function toast(msg) {
   const t = Object.assign(document.createElement('div'), { className: 'toast', textContent: msg, role: 'status' });
@@ -83,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
   homeLinks();
   const card = MINE && $(`.dl[data-platform="${MINE}"]`);
   if (card) { card.classList.add('mine'); card.parentElement.prepend(card); }
-  const bar = $(`.getbar[data-platform="${MINE || 'android'}"]`) || $('.getbar');
+  const bar = $(`.getbar[data-platform="${MINE}"]`) || (MINE !== 'web' || !IOS) && $('.getbar');
   const panels = $('.dls');
   if (bar && panels && 'IntersectionObserver' in window) {
     bar.hidden = false; document.body.style.paddingBottom = '72px';

@@ -6,8 +6,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const PLATFORMS = { android: 'Android', windows: 'Windows' };
-export const KINDS = { apk: 'android', setup: 'windows', portable: 'windows' };
+export const PLATFORMS = { android: 'Android', windows: 'Windows', web: 'Web app' };
+// web = a web app hosted on Zenith itself (web/<id>/ in this repo, served at <baseUrl>/web/<id>/)
+export const KINDS = { apk: 'android', setup: 'windows', portable: 'windows', web: 'web' };
 export const NOTES_MAX = 200;                       // Bambowl shows at most 200 characters
 
 export function readJson(file) { return JSON.parse(fs.readFileSync(file, 'utf8')); }
@@ -80,9 +81,11 @@ export function validate(site, apps) {
       if (r.changes != null && (!Array.isArray(r.changes) || r.changes.some(c => typeof c !== 'string' || !c.trim() || c.length > 300))) rv('changes must be a list of short lines (max 300 characters each)');
       if (!r.files?.length) rv('needs at least one file');
       for (const f of r.files || []) {
-        if (!KINDS[f.kind]) rv(`file ${f.name}: kind must be apk, setup or portable`);
+        if (!KINDS[f.kind]) rv(`file ${f.name}: kind must be apk, setup, portable or web`);
         if (!a.platforms?.[KINDS[f.kind]]) rv(`file ${f.name}: app has no ${KINDS[f.kind]} platform`);
         if (!https(f.url)) rv(`file ${f.name}: url must be https`);
+        if (f.kind === 'web' && f.url !== `${site.baseUrl}/web/${a.id}/`) rv(`file ${f.name}: a web app lives at ${site.baseUrl}/web/${a.id}/`);
+        if (f.kind === 'web' && !['public', 'unlisted', undefined].includes(a.visibility)) rv(`file ${f.name}: web apps are public, so the app must be public or unlisted`);
         if (!/^[0-9a-f]{64}$/.test(f.sha256 || '')) rv(`file ${f.name}: sha256 missing`);
         if (!(f.size > 0)) rv(`file ${f.name}: size missing`);
         if (r.permissions != null && !(Array.isArray(r.permissions) && r.permissions.every(x => typeof x === 'string'))) rv('permissions must be a list of permission names');
@@ -123,6 +126,15 @@ export function windowsFeed(site, app) {
   for (const f of r.files) if (KINDS[f.kind] === 'windows') files[f.kind] = { url: f.url, size: f.size, sha256: f.sha256 };
   return { name: r.version, notes: r.notes, published: r.date, page: appUrl(site, app), files };
 }
+
+/** Web app: where it lives and which version is there. The web app reads this to offer "New version, reload". */
+export function webFeed(site, app) {
+  const r = latestFor(app, 'web');
+  if (!r) return null;
+  const f = r.files.find(x => x.kind === 'web');
+  return { name: r.version, notes: r.notes, published: r.date, url: f.url, page: appUrl(site, app) };
+}
+export const webUrl = (site, app) => `${site.baseUrl}/web/${app.id}/`;
 
 export function releaseTag(app, version) { return `${app.id}-${version}`; }
 export function assetUrl(site, app, version, name) {

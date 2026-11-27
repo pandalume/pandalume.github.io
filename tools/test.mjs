@@ -164,6 +164,22 @@ t('home shows latest updates and no filter row with few apps', () => {
   assert.ok(h.includes('Latest updates') && !h.includes('data-filter='));
 });
 
+console.log('web apps');
+t('web app copied as is to /web/<id>/', () => assert.match(html('web/bambowl/index.html'), /Bambowl web \(test\)/));
+t('web feed names the version and where it lives', () => {
+  const w = readJson(out('api/bambowl/web.json'));
+  assert.equal(w.name, '1.6.1'); assert.equal(w.url, `${site.baseUrl}/web/bambowl/`); assert.ok(w.notes);
+});
+t('app page: Open web app button, no hash or download size for it', () => {
+  const h = html('apps/bambowl/index.html');
+  assert.match(h, /data-kind="web" target="_blank"/); assert.match(h, /Add to Home Screen/);
+  assert.ok(!/Download size \(Web app\)|Web app size/.test(h));
+});
+t('/get/<id>/web/ forwards to the web app', () => assert.ok(html('get/bambowl/web/index.html').includes('/web/bambowl/')));
+t('install help explains web apps', () => assert.match(html('install/index.html'), /id="web"/));
+t('Android feed unchanged by the web app', () => { const f = readJson(out('api/bambowl/android.json')); assert.equal(f.code, 8); assert.match(f.apk, /\.apk$/); });
+t('apps without a web version get no web feed or folder', () => assert.ok(!fs.existsSync(out('api/quillix-note/web.json')) && !fs.existsSync(out('web/quillix-note'))));
+
 console.log('rules (bad data is refused before anything is written)');
 const good = appsData('bambowl');
 const bad = (name, mut, re) => t(name, () => {
@@ -177,6 +193,8 @@ bad('duplicate version', a => { a.releases[1].version = a.releases[0].version; }
 bad('pulled without reason', a => { delete a.releases[0].pulledReason; }, /pulledReason/);
 bad('changes must be short lines', a => { a.releases[1].changes = ['ok', '']; }, /changes must be/);
 bad('http download link', a => { a.releases[1].files[0].url = 'http://x/y.apk'; }, /https/);
+bad('web app must live at /web/<id>/', a => { a.releases[1].files.find(f => f.kind === 'web').url = 'https://example.com/x/'; }, /web app lives at/);
+bad('web app needs a public app', a => { a.visibility = 'family'; }, /web apps are public/);
 t('build refuses invalid data and leaves output untouched', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zg-bad-'));
   fs.cpSync(DATA, tmp, { recursive: true });

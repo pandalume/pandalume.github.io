@@ -27,6 +27,9 @@
       "package": "com.jon.bambowl",
       "certSha256": "d6cdaf41650279af465d227329a3389c84a56996f1c8bb4762ced18a8b222704",
       "requires": "Android 8.0 or newer"
+    },
+    "web": {
+      "requires": "Any modern browser"
     }
   },
   "releases": [
@@ -63,6 +66,13 @@
           "url": "https://github.com/tinypanda-collab/tinypanda-collab.github.io/releases/download/bambowl-1.6.1/Bambowl-1.6.1.apk",
           "size": 8044997,
           "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "kind": "web",
+          "name": "bambowl-web-1.6.1",
+          "url": "https://tinypanda-collab.github.io/web/bambowl/",
+          "size": 48213,
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
         }
       ]
     },

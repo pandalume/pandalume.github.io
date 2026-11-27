@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { currentEvents, ROOT, PLATFORMS, KINDS, loadData, latestFor, androidFeed, windowsFeed, appUrl, timeline } from './lib.mjs';
+import { currentEvents, ROOT, PLATFORMS, KINDS, loadData, latestFor, androidFeed, windowsFeed, webFeed, appUrl, timeline } from './lib.mjs';
 const qrcode = createRequire(import.meta.url)('./vendor/qrcode.cjs');   // MIT, Kazuhiko Arase
 
 const args = process.argv.slice(2);
@@ -27,8 +27,11 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const mb = n => n >= 1e9 ? (n / 1e9).toFixed(2) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' KB';
 const date = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const num = n => n.toLocaleString('en-US');
-const KIND_LABEL = { apk: 'Download APK', setup: 'Installer', portable: 'Portable' };
-const KIND_HINT = { apk: 'Android app', setup: 'Installs with a Start menu shortcut', portable: 'Runs without installing' };
+const KIND_LABEL = { apk: 'Download APK', setup: 'Installer', portable: 'Portable', web: 'Open web app' };
+const KIND_HINT = { apk: 'Android app', setup: 'Installs with a Start menu shortcut', portable: 'Runs without installing', web: 'Runs in your browser: iPhone, iPad, any computer' };
+// Platform order everywhere: Android first (most visitors are on phones), then Windows, then the web app.
+const PORDER = { android: 0, windows: 1, web: 2 };
+const byPlat = (x, y) => (PORDER[x] ?? 9) - (PORDER[y] ?? 9);
 const fill = html => html.replaceAll('{{contact}}', esc(site.contact));
 const read = p => fs.readFileSync(p, 'utf8');
 const exists = p => fs.existsSync(p);
@@ -122,7 +125,7 @@ const releaseRow = ({ app, r }) => `<li><a class="upd" href="/apps/${app.id}/#${
   <img class="icon" src="${iconOf(app.id)}" alt="" width="44" height="44">
   <span><b>${esc(app.name)} ${esc(r.version)}</b><span class="muted small"> · ${date(r.date)}</span><br><span class="small">${esc(r.notes)}</span></span></a></li>`;
 
-const chips = app => Object.keys(app.platforms).sort((x, y) => (x === 'android' ? 0 : 1) - (y === 'android' ? 0 : 1)).map(p => `<span class="chip">${PLATFORMS[p]}</span>`).join('');
+const chips = app => Object.keys(app.platforms).sort(byPlat).map(p => `<span class="chip">${PLATFORMS[p]}</span>`).join('');
 
 // Android permissions in plain words (what Play shows under "App permissions"). Internal ones are hidden.
 const PERMS = {
@@ -243,9 +246,10 @@ ${items.map(({ app, r }) => `  <entry>
 // Chrome asks before saving any APK from outside the Play Store; without this hint people miss it
 // and the download sits at 100% forever.
 const APK_HINT = `<p class="small dl-hint">Chrome will ask <b>"File might be harmful"</b> because the app isn't from the Play Store. Tap <b>Download anyway</b>, then open the file to install.</p>`;
+const WEB_HINT = '<p class="small dl-hint">Opens in your browser and is always the newest version: there is nothing to download or update. To keep it like an app, add it to your home screen (iPhone/iPad: <b>Share › Add to Home Screen</b>).</p>';
 function fileButton(f, primary) {
-  return `<a class="btn ${primary ? 'btn-iri' : 'btn-ghost'}" href="${esc(f.url)}" data-kind="${f.kind}">
-  <span>${KIND_LABEL[f.kind]}</span><small>${mb(f.size)} · ${KIND_HINT[f.kind]}</small></a>`;
+  return `<a class="btn ${primary ? 'btn-iri' : 'btn-ghost'}" href="${esc(f.url)}" data-kind="${f.kind}"${f.kind === 'web' ? ' target="_blank" rel="noopener"' : ''}>
+  <span>${KIND_LABEL[f.kind]}</span><small>${f.kind === 'web' ? '' : mb(f.size) + ' · '}${KIND_HINT[f.kind]}</small></a>`;
 }
 function hashes(files) {
   return `<details class="hash"><summary>File fingerprints (SHA-256)</summary>${files.map(f =>
@@ -279,7 +283,7 @@ function familyPage() {
 <template id="fam-share-qr">${qrSvg(site.baseUrl + '/family/', 200)}</template>
 <script type="application/json" id="family-public">${JSON.stringify(apps.filter(a => a.visibility === 'public').map(a => {   // link-only apps stay unlisted here too
   const latest = (a.releases || []).find(r => r.status === 'live');
-  return { id: a.id, name: a.name, tagline: a.tagline, category: a.category || '', kind: a.kind || 'app', group: a.visibility, platforms: Object.keys(a.platforms).sort((x, y) => (x === 'android' ? 0 : 1) - (y === 'android' ? 0 : 1)), version: latest?.version || '', icon: iconOf(a.id), order: a.order ?? 99 };
+  return { id: a.id, name: a.name, tagline: a.tagline, category: a.category || '', kind: a.kind || 'app', group: a.visibility, platforms: Object.keys(a.platforms).sort(byPlat), version: latest?.version || '', icon: iconOf(a.id), order: a.order ?? 99 };
 })).replace(/</g, '\\u003c')}</script>
 <p class="small muted">Signing in here tells our server only your email address, to check the invite list. See the <a href="/privacy.html">privacy policy</a>.</p>`
   });
@@ -327,7 +331,7 @@ function ownerPage() {
 
 function appPage(app) {
   if (app.visibility === 'family') return familyStubPage(app);
-  const plats = Object.keys(app.platforms).sort((x, y) => (x === 'android' ? 0 : 1) - (y === 'android' ? 0 : 1));   // Android first: most visitors are on phones
+  const plats = Object.keys(app.platforms).sort(byPlat);   // Android first: most visitors are on phones
   const latestAny = (app.releases || []).find(r => r.status === 'live');
   const total = appCount(app);
   const primaryFile = p => { const r = latestFor(app, p); return r && r.files.find(f => KINDS[f.kind] === p); };
@@ -340,11 +344,12 @@ function appPage(app) {
   <div class="dl-head"><h3>${PLATFORMS[p]}</h3><span class="muted small">${esc(info.requires || '')}</span></div>
   ${r ? `<p class="ver">Version ${esc(r.version)} · ${date(r.date)}</p>
   <div class="dl-body"><div class="dl-main"><div class="btns">${files.map((f, i) => fileButton(f, i === 0)).join('')}</div>
-  ${p === 'android' ? APK_HINT : ''}
+  ${p === 'android' ? APK_HINT : p === 'web' ? WEB_HINT : ''}
   <p class="notes"><b>What's new:</b> ${esc(r.notes)}</p>
-  ${hashes(files)}
+  ${p === 'web' ? `<p class="small"><a href="/install/#web">Add it to your home screen</a> · <button type="button" class="linkish copy" data-copy="${esc(files[0].url)}" data-done="Link copied">Copy link</button></p></div>
+  <figure class="qr-box">${qrSvg(files[0].url)}<figcaption>On a computer? Scan with your phone to open it there.</figcaption></figure></div>` : `${hashes(files)}
   <p class="small"><a href="/install/#${p}">How to install on ${PLATFORMS[p]}</a> · <button type="button" class="linkish copy" data-copy="${short}" data-done="Link copied">Copy download link</button></p></div>
-  ${p === 'android' ? `<figure class="qr-box">${qrSvg(short)}<figcaption>On a computer? Scan with your phone to download.</figcaption></figure>` : ''}</div>`
+  ${p === 'android' ? `<figure class="qr-box">${qrSvg(short)}<figcaption>On a computer? Scan with your phone to download.</figcaption></figure>` : ''}</div>`}`
     : '<p class="muted">No download yet. Check back soon.</p>'}
 </div>`;
   }).join('\n');
@@ -352,7 +357,7 @@ function appPage(app) {
   const facts = [
     latestAny && ['Version', latestAny.version],
     latestAny && ['Updated', date(latestAny.date)],
-    ...plats.map(p => primaryFile(p) && [plats.length > 1 ? `${PLATFORMS[p]} size` : 'Size', mb(primaryFile(p).size)]),
+    ...plats.filter(p => p !== 'web').map(p => primaryFile(p) && [plats.length > 1 ? `${PLATFORMS[p]} size` : 'Size', mb(primaryFile(p).size)]),
     ...plats.map(p => app.platforms[p].requires && [plats.length > 1 ? `${PLATFORMS[p]}` : 'Requires', app.platforms[p].requires.replace(' or newer', '+')]),
     total && ['Downloads', bucket(total)]
   ].filter(Boolean);
@@ -415,7 +420,7 @@ ${e.ends ? `<span class="chip warn-chip">Ends ${date(e.ends)}</span>` : '<span c
     latestAny && ['Version', plats.map(p => latestFor(app, p)?.version).filter((v, i, a) => v && a.indexOf(v) === i).join(' / ')],
     latestAny && ['Updated on', date(latestAny.date)],
     total && ['Downloads', bucket(total)],
-    ...plats.map(p => primaryFile(p) && [plats.length > 1 ? `Download size (${PLATFORMS[p]})` : 'Download size', mb(primaryFile(p).size)]),
+    ...plats.filter(p => p !== 'web').map(p => primaryFile(p) && [plats.length > 1 ? `Download size (${PLATFORMS[p]})` : 'Download size', mb(primaryFile(p).size)]),
     ...plats.map(p => app.platforms[p].requires && [plats.length > 1 ? `Requires (${PLATFORMS[p]})` : 'Requires', app.platforms[p].requires]),
     ['Ads', app.ads ? 'Contains ads' : 'None'],
     ['In-app purchases', app.purchases ? esc(app.purchases === true ? 'Yes' : app.purchases) : 'None'],
@@ -446,8 +451,8 @@ ${perms.length ? `<details class="ds-more perms"><summary>App permissions (Andro
 ${rel.length > SHOW ? `<details class="older"><summary>Show ${rel.length - SHOW} older version${rel.length - SHOW > 1 ? 's' : ''}</summary><ol class="versions">${rel.slice(SHOW).map(verItem).join('')}</ol></details>` : ''}</section>` : '';
 
   const bar = plats.map(p => { const f = primaryFile(p); return f ? `<div class="getbar" data-platform="${p}" hidden>
-  <img class="icon" src="${iconOf(app.id)}" alt="" width="36" height="36"><span><b>${esc(app.name)}</b><small>${esc(latestFor(app, p).version)} · ${mb(f.size)}</small></span>
-  <a class="btn btn-iri" href="${esc(f.url)}">${p === 'android' ? 'Download' : 'Get for Windows'}</a></div>` : ''; }).join('');
+  <img class="icon" src="${iconOf(app.id)}" alt="" width="36" height="36"><span><b>${esc(app.name)}</b><small>${esc(latestFor(app, p).version)}${p === 'web' ? ' · web app' : ' · ' + mb(f.size)}</small></span>
+  <a class="btn btn-iri" href="${esc(f.url)}">${p === 'android' ? 'Download' : p === 'web' ? 'Open' : 'Get for Windows'}</a></div>` : ''; }).join('');
 
   return page({
     title: `${app.name} · ${site.name}`,
@@ -512,7 +517,7 @@ ${d.intro ? part(d.intro, app) : ''}${subject.map(a => part(`apps/${a.id}/${d.fi
 function install() {
   return page({
     title: `Install help · ${site.name}`,
-    description: 'How to install and update apps downloaded from this site on Android and Windows.',
+    description: 'How to install and update apps from this site on Android, Windows, iPhone and the web.',
     canonical: site.baseUrl + '/install/',
     body: `<article class="prose"><h1>Install help</h1>
 <p>These apps come straight from the developer instead of an app store, so your phone or PC asks you to confirm the first time. That's expected.</p>
@@ -534,6 +539,14 @@ function install() {
 <ul><li><b>Installer</b>: installs the app with a Start menu shortcut. Best for most people.</li>
 <li><b>Portable</b>: a single file that runs without installing, for example from a USB stick.</li></ul>
 <p>The apps aren't code-signed yet, so Windows may show <i>“Windows protected your PC”</i>. Click <b>More info</b>, check that the file name matches what you downloaded, then click <b>Run anyway</b>.</p>
+<h2 id="web">Web apps (iPhone, iPad and any computer)</h2>
+<p>Some apps also come as a <b>web app</b>: tap <b>Open web app</b> and it runs in your browser. There's nothing to install, and it's always the newest version.</p>
+<ul>
+<li><b>iPhone or iPad:</b> open it in <b>Safari</b>, tap <b>Share</b> (the square with an arrow), then <b>Add to Home Screen</b>. It opens like an app from then on.</li>
+<li><b>Android:</b> in Chrome, tap <b>⋮ › Add to Home screen</b> (or <b>Install app</b>).</li>
+<li><b>Windows or Mac:</b> in Chrome or Edge, click the install icon at the right of the address bar, or just bookmark it.</li>
+</ul>
+<p><b>Updating:</b> nothing to do. When a new version is out, the web app tells you and reloads itself into it.</p>
 <h2 id="verify">Check a download (optional)</h2>
 <p>Every file's page lists its SHA-256 fingerprint. On Windows, open PowerShell in the folder with the file and run:</p>
 <pre><code>Get-FileHash .\\FileName.exe -Algorithm SHA256</code></pre>
@@ -576,6 +589,10 @@ const ROOTFILES = path.join(CONTENT, 'root');
 if (exists(ROOTFILES)) for (const f of fs.readdirSync(ROOTFILES)) fs.copyFileSync(path.join(ROOTFILES, f), path.join(OUT, f));
 if (site.domain) write('CNAME', site.domain + '\n');
 
+// Web apps (web/<id>/ next to data/, put there by zgs publish): served as they are, at /web/<id>/.
+const copyRaw = (src, dst) => { if (exists(src)) fs.cpSync(src, dst, { recursive: true }); };
+for (const app of apps) if (app.platforms.web && latestFor(app, 'web') && app.visibility !== 'private') copyRaw(path.join(DATA, '..', 'web', app.id), path.join(OUT, 'web', app.id));
+
 write('index.html', home());
 write('install/index.html', install());
 write('privacy.html', docPage('privacy'));
@@ -602,6 +619,8 @@ for (const app of apps) {
   const a = androidFeed(site, app), w = windowsFeed(site, app);
   if (a) { json(`api/${app.id}/android.json`, a); feeds.android = `${site.baseUrl}/api/${app.id}/android.json`; write(`get/${app.id}/android/index.html`, getPage(app, a.apk, 'for Android')); }
   if (w) { json(`api/${app.id}/windows.json`, w); feeds.windows = `${site.baseUrl}/api/${app.id}/windows.json`; const f = w.files.setup || w.files.portable; write(`get/${app.id}/windows/index.html`, getPage(app, f.url, 'for Windows')); }
+  const wb = webFeed(site, app);
+  if (wb) { json(`api/${app.id}/web.json`, wb); feeds.web = `${site.baseUrl}/api/${app.id}/web.json`; write(`get/${app.id}/web/index.html`, getPage(app, wb.url, 'web app')); }
   const currentRel = new Set(Object.keys(app.platforms).map(p => latestFor(app, p)).filter(Boolean));
   json(`api/${app.id}/releases.json`, (app.releases || []).map(r => ({
     version: r.version, ...(r.code != null && { code: r.code }), date: r.date, status: r.status, notes: r.notes, ...(r.changes && { changes: r.changes }),

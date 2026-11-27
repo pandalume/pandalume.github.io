@@ -182,6 +182,37 @@ function inspectApk(file) {
 }
 const EXE = /^(.*?)[-_ ](Setup|Portable)[-_ ]v?(\d+(?:\.\d+){1,3})(?:-x64)?\.exe$/i;
 
+// A web app: the finished site in <build folder>\web\ (index.html at its top), with web\version.json
+// {"version":"1.2.0"}. It is copied into this repo at web/<id>/ and served at <baseUrl>/web/<id>/.
+const WEB_MAX_FILE = 25 * 1024 * 1024, WEB_MAX_TOTAL = 150 * 1024 * 1024;
+function webFiles(dir, base = dir, out = []) {
+  for (const name of fs.readdirSync(dir).sort()) {
+    const full = path.join(dir, name), rel = path.relative(base, full).split(path.sep).join('/');
+    const st = fs.lstatSync(full);
+    if (st.isSymbolicLink()) stop(`Refusing: web\\${rel} is a link. Copy the real file in instead.`);
+    if (st.isDirectory()) { if (name === 'node_modules' || name === '.git') stop(`Refusing: web\\${rel} is a ${name} folder. Put only the finished site (the build output) in web\\.`); webFiles(full, base, out); continue; }
+    if (FORBIDDEN.test(name) || /^\.env/i.test(name)) stop(`Refusing: web\\${rel} looks like a key or secret. Web app files are public: anyone can read them.`);
+    if (/\.(apk|aab|exe|msi)$/i.test(name)) stop(`Refusing: web\\${rel} is an app installer. Keep installers next to the web folder, not inside it.`);
+    if (st.size > WEB_MAX_FILE) stop(`web\\${rel} is ${mb(st.size)}; the limit for one web app file is ${mb(WEB_MAX_FILE)}.`);
+    out.push({ rel, full, size: st.size });
+  }
+  return out;
+}
+function findWeb(app, folder) {
+  const dir = path.join(folder, 'web');
+  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return null;
+  if (!fs.existsSync(path.join(dir, 'index.html'))) stop(`${dir} has no index.html at its top. Put the finished web app (the build output) there.`);
+  let v;
+  try { v = JSON.parse(fs.readFileSync(path.join(dir, 'version.json'), 'utf8')).version; } catch { v = null; }
+  if (!/^\d+(\.\d+){1,3}$/.test(v || '')) stop(`${dir}\\version.json must say the version, e.g. {"version":"1.2.0"}. The web app reads it to know when it's out of date.`);
+  const list = webFiles(dir), size = list.reduce((n, f) => n + f.size, 0);
+  if (size > WEB_MAX_TOTAL) stop(`The web app is ${mb(size)}; the limit is ${mb(WEB_MAX_TOTAL)}.`);
+  // one fingerprint for the whole folder: every file's path and SHA-256, in order
+  const h = crypto.createHash('sha256');
+  for (const f of list) h.update(`${f.rel}\0${sha256File(f.full)}\n`);
+  return { kind: 'web', full: dir, name: `${app.id}-web-${v}`, version: v, size, sha256: h.digest('hex'), list };
+}
+
 /** Finds the build files to publish for an app and works out their version. */
 function findBuild(app, folder) {
   if (!fs.existsSync(folder)) stop(`Build folder not found: ${folder}`);
@@ -193,13 +224,16 @@ function findBuild(app, folder) {
     if (/\.apk$/i.test(name)) files.push({ kind: 'apk', full, name });
     else { const m = EXE.exec(name); if (m) files.push({ kind: m[2].toLowerCase(), full, name, version: m[3] }); }
   }
+  const web = findWeb(app, folder);
+  if (web) files.push(web);
   const only = flags.platform;
-  const picked = files.filter(f => app.platforms[KINDS[f.kind]] && (!only || KINDS[f.kind] === only));
-  if (!picked.length) stop(`No ${only || ''} build for ${app.name} in ${folder} (looked for .apk, *-Setup-<ver>.exe, *-Portable-<ver>.exe).`);
+  const picked = files.filter(f => (app.platforms[KINDS[f.kind]] || f.kind === 'web') && (!only || KINDS[f.kind] === only));
+  if (!picked.length) stop(`No ${only || ''} build for ${app.name} in ${folder} (looked for .apk, *-Setup-<ver>.exe, *-Portable-<ver>.exe, web\\index.html).`);
   for (const k of ['apk', 'setup', 'portable']) if (picked.filter(f => f.kind === k).length > 1) stop(`More than one ${k} file in ${folder}. Leave only the build to publish.`);
 
   let code = null, permissions = null;
   for (const f of picked) {
+    if (f.kind === 'web') continue;                                   // checked by findWeb
     f.size = fs.statSync(f.full).size;
     if (f.size < 1024) stop(`${f.name} is only ${f.size} bytes.`);
     const head = Buffer.alloc(4); const fd = fs.openSync(f.full, 'r'); fs.readSync(fd, head, 0, 4, 0); fs.closeSync(fd);
@@ -394,17 +428,27 @@ async function publish(newApp = null) {
   say(c.b(`\n${app.name}: checking ${folder}`));
   const build = findBuild(app, folder);
   const all = app.releases || [];
-  if (all.some(r => r.version === build.version)) stop(`${app.name} ${build.version} is already published. Raise the version and rebuild.`);
+  // The web app of a version that's already out (the APK went first): added to that same release.
+  const same = all.find(r => r.version === build.version);
+  const addWeb = !!same && build.files.every(f => f.kind === 'web') && !same.files.some(f => f.kind === 'web') && same.status === 'live' && !backfill;
+  if (same && !addWeb) stop(`${app.name} ${build.version} is already published. Raise the version and rebuild.`);
   const newest = all[0];
-  if (!backfill && newest && cmpRelease(build, newest) <= 0) stop(`${build.version} is not newer than ${newest.version}. (Use --backfill to add an older build to the history.)`);
+  if (addWeb && same !== newest) stop(`${build.version} isn't ${app.name}'s newest version (${newest.version} is). Build the web app from ${newest.version} or newer.`);
+  if (!addWeb && !backfill && newest && cmpRelease(build, newest) <= 0) stop(`${build.version} is not newer than ${newest.version}. (Use --backfill to add an older build to the history.)`);
   if (build.code != null) {
     const codes = all.filter(r => r.code != null);
     if (!backfill && codes.some(r => r.code >= build.code)) stop(`versionCode ${build.code} is not higher than every published one (highest: ${Math.max(...codes.map(r => r.code))}). Phones only update to a higher versionCode.`);
   }
-  for (const f of build.files) { f.sha256 = sha256File(f.full); f.upload = f.name.replace(/[^\w.-]+/g, '-'); }
+  for (const f of build.files) { if (f.kind !== 'web') f.sha256 = sha256File(f.full); f.upload = f.name.replace(/[^\w.-]+/g, '-'); }
+  const webBuild = build.files.find(f => f.kind === 'web'), uploads = build.files.filter(f => f.kind !== 'web');
+  if (webBuild && (family || PRIVATE_REPO(app.visibility))) stop(`${app.name} is ${app.visibility === 'owner' ? 'just for you' : 'family & friends only'}, and web apps are public for now (anyone with the link can open them). Publish the web app once the app is public, or use --platform to publish the other builds.`);
+  if (webBuild && backfill) stop('--backfill is not for web apps: only the newest web version is kept online.');
+  if (webBuild && !app.platforms.web) { app.platforms = { ...app.platforms, web: { requires: 'Any modern browser' } }; say(c.dim('  first web version: adds "Web app" to the app page')); }
+  const WEB_URL = `${SITE().baseUrl}/web/${app.id}/`;
 
-  let notes = typeof flags.notes === 'string' ? flags.notes : '';
-  let changes = typeof flags.changes === 'string' ? flags.changes.split('|').map(x => x.trim()).filter(Boolean) : [];
+  let notes = addWeb ? same.notes : typeof flags.notes === 'string' ? flags.notes : '';
+  let changes = addWeb ? (same.changes || []) : typeof flags.changes === 'string' ? flags.changes.split('|').map(x => x.trim()).filter(Boolean) : [];
+  if (addWeb) say(c.dim(`  ${build.version} is already out; its web app is added to it, with the same notes.`));
   const wn = !notes && !backfill && whatsNew(folder, build.version);  // written by the app chat, so you don't type it
   if (wn) {
     say(`\n  ${c.b("What's new")} ${c.dim('(from Store listing\\whats-new.txt)')}\n  ${wn.notes}`);
@@ -414,21 +458,22 @@ async function publish(newApp = null) {
   if (!notes) notes = await ask(`One line of what's new (max ${NOTES_MAX} chars): `);
   if (!notes) stop('Notes are required. Phones show them in the update bar.');
   if (notes.length > NOTES_MAX) stop(`Notes are ${notes.length} characters; the limit is ${NOTES_MAX}.`);
-  if (!changes.length && typeof flags.notes !== 'string' && !flags.yes && !wn) {
+  if (!addWeb && !changes.length && typeof flags.notes !== 'string' && !flags.yes && !wn) {
     say(c.dim('More details for the version history (optional). One per line; press Enter on an empty line to finish.'));
     for (let line; (line = await ask('  • ')) && changes.length < 20;) changes.push(line);
   }
-  const date = backfill ? (flags.date || stop('--backfill needs --date YYYY-MM-DD')) : today();
+  const date = addWeb ? same.date : backfill ? (flags.date || stop('--backfill needs --date YYYY-MM-DD')) : today();
 
   const release = { version: build.version, ...(build.code != null && { code: build.code }), date, status: 'live', notes, ...(changes.length && { changes }), ...(build.permissions && { permissions: build.permissions }), files: [] };
   // Check the finished data would be valid *before* touching GitHub.
-  const preview = [...all, { ...release, files: build.files.map(f => ({ kind: f.kind, name: f.upload, url: 'https://example.invalid/x', size: f.size, sha256: f.sha256 })) }]
+  const withFiles = files => addWeb ? { ...same, files: [...same.files, ...files] } : { ...release, files };
+  const preview = [...all.filter(r => !addWeb || r !== same), withFiles( build.files.map(f => ({ kind: f.kind, name: f.upload, url: f.kind === 'web' ? WEB_URL : 'https://example.invalid/x', size: f.size, sha256: f.sha256 })))]
     .sort((a, b) => cmpRelease(b, a));
   const errs = validate(SITE(), [{ ...app, releases: preview }]);
   if (errs.length) stop('This release would make the data invalid:\n  ' + errs.join('\n  '));
 
   say(`\n  ${c.b(app.name + ' ' + build.version)}${build.code != null ? ` (versionCode ${build.code})` : ''}  ·  ${date}${backfill ? '  ·  history only' : ''}`);
-  for (const f of build.files) say(`  ${f.kind.padEnd(8)} ${f.name}  ${mb(f.size)}\n           sha256 ${c.dim(f.sha256)}`);
+  for (const f of build.files) say(f.kind === 'web' ? `  web      ${f.list.length} files, ${mb(f.size)}  →  ${WEB_URL}` : `  ${f.kind.padEnd(8)} ${f.name}  ${mb(f.size)}\n           sha256 ${c.dim(f.sha256)}`);
   say(`  notes    ${notes}`);
   for (const ch of changes) say(`           • ${ch}`);
   if (app.platforms.android && build.code != null) say(`  ${c.ok('✓')} signed with the ${app.name} release key`);
@@ -443,18 +488,18 @@ async function publish(newApp = null) {
   if (!(await confirm('\nPublish this?'))) stop('Cancelled. Nothing changed.');
 
   // git must be clean and current, so the push can't clash
-  if (git('status', '--porcelain', '--', 'data', 'content', 'tools/zgs.config.json')) stop('data/ or content/ has uncommitted changes. Commit or undo them first.');
+  if (git('status', '--porcelain', '--', 'data', 'content', 'web', 'tools/zgs.config.json')) stop('data/, content/ or web/ has uncommitted changes. Commit or undo them first.');
   git('pull', '--ff-only', '--quiet');
   _data = null;
   if (created && DATA().apps.some(a => a.id === app.id)) stop(`${app.id} was added meanwhile. Run Publish again.`);
   const fresh = created ? app : family ? await familyApp(appById(app.id)) : appById(app.id);   // re-read after pull
-  if ((fresh.releases || []).some(r => r.version === build.version)) stop(`${build.version} was published meanwhile.`);
+  if (!addWeb && (fresh.releases || []).some(r => r.version === build.version)) stop(`${build.version} was published meanwhile.`);
 
   // 1. release + uploads (re-running after a failure resumes here safely)
   const tag = releaseTag(app, build.version), R = p => family ? FAPI(p) : p;
-  let rel = await gh('GET', R(`/releases/tags/${encodeURIComponent(tag)}`));
-  if (!rel) rel = await gh('POST', R('/releases'), JSON.stringify({ tag_name: tag, ...(!family && { target_commitish: git('rev-parse', 'HEAD') }), name: `${app.name} ${build.version}`, body: notes, make_latest: 'false' }), { 'Content-Type': 'application/json' });
-  for (const f of build.files) {
+  let rel = !uploads.length ? null : await gh('GET', R(`/releases/tags/${encodeURIComponent(tag)}`));
+  if (!rel && uploads.length) rel = await gh('POST', R('/releases'), JSON.stringify({ tag_name: tag, ...(!family && { target_commitish: git('rev-parse', 'HEAD') }), name: `${app.name} ${build.version}`, body: notes, make_latest: 'false' }), { 'Content-Type': 'application/json' });
+  for (const f of uploads) {
     let asset = rel.assets.find(a => a.name === f.upload);
     if (asset && asset.state !== 'uploaded') {                        // a broken earlier upload: clear it and retry
       say(c.dim(`  removing an unfinished earlier upload of ${f.upload}`));
@@ -470,7 +515,7 @@ async function publish(newApp = null) {
   }
   // 2. prove the public copies are byte-for-byte the files on this PC. GitHub reports each file's SHA-256
   //    ("digest"), so there's no need to download everything again; older assets without one are downloaded.
-  for (const f of build.files) {
+  for (const f of uploads) {
     process.stdout.write(`  verifying ${f.upload}… `);
     const meta = await gh('GET', R(`/releases/assets/${f.assetId}`));
     let got;
@@ -481,11 +526,14 @@ async function publish(newApp = null) {
   }
   // 3. announce: one commit updates page, buttons and feeds together
   // selfDownloads: the check download above, so it isn't counted as someone downloading the app
+  if (webBuild) webBuild.url = WEB_URL;
   release.files = build.files.map(f => ({ kind: f.kind, name: f.upload, url: f.url, size: f.size, sha256: f.sha256, ...(f.downloaded && { selfDownloads: 1 }), ...(family && { assetId: f.assetId }) }));
   let raw = created ? created.raw : family ? Object.fromEntries(Object.entries(fresh).filter(([k]) => k !== '_file')) : readJson(fresh._file);
   if (family) raw.visibility = vis;
   if (listingChanges.length) applyListing(raw, listing, family);
-  raw.releases = [...(raw.releases || []), release].sort((a, b) => cmpRelease(b, a));
+  if (addWeb) { const r = raw.releases.find(x => x.version === build.version) || stop(`${build.version} is gone from the data. Run Publish again.`); r.files.push(...release.files); }
+  else raw.releases = [...(raw.releases || []), release].sort((a, b) => cmpRelease(b, a));
+  if (webBuild && !raw.platforms.web) raw.platforms.web = { requires: 'Any modern browser' };
   if (family) {
     const errs = validate(SITE(), [{ ...raw, _file: fresh._file }]);
     if (errs.length) stop('The family data would be invalid:\n  ' + errs.join('\n  '));
@@ -496,6 +544,12 @@ async function publish(newApp = null) {
   }
   writeJson(fresh._file, raw);
   const touched = [fresh._file, path.join('content', 'apps', app.id)];
+  if (webBuild) {                                                     // the web app itself: replaced whole, so old files don't linger
+    const dst = path.join(ROOT, 'web', app.id);
+    fs.rmSync(dst, { recursive: true, force: true });
+    for (const f of webBuild.list) { const to = path.join(dst, ...f.rel.split('/')); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(f.full, to); }
+    touched.push(path.join('web', app.id));
+  }
   if (created) { CONFIG.apps[app.id] = path.relative(CONFIG.finishedApps, folder); writeJson(path.join(ROOT, 'tools', 'zgs.config.json'), CONFIG); touched.push(path.join('tools', 'zgs.config.json')); }
   try { _data = null; loadData(); } catch (e) {
     if (created) { fs.rmSync(fresh._file, { force: true }); fs.rmSync(appDir(app.id), { recursive: true, force: true }); git('checkout', '--', 'tools/zgs.config.json'); }
@@ -508,13 +562,13 @@ async function publish(newApp = null) {
   const chk = run(process.execPath, [path.join(ROOT, 'tools', 'test.mjs')]);
   if (chk.status !== 0) {
     if (created) { fs.rmSync(fresh._file, { force: true }); fs.rmSync(appDir(app.id), { recursive: true, force: true }); git('checkout', '--', 'tools/zgs.config.json'); }
-    else git('checkout', '--', ...touched);
+    else { git('checkout', '--', ...touched.filter(t => !t.startsWith('web'))); if (webBuild) { fs.rmSync(path.join(ROOT, 'web', app.id), { recursive: true, force: true }); run('git', ['checkout', '--', path.join('web', app.id)]); } }
     const fails = (chk.stdout + chk.stderr).split('\n').filter(l => /FAIL|→|Error/.test(l)).slice(0, 8).join('\n');
     stop(`The website would not build with this release, so nothing was pushed. Your uploaded files are kept: run Publish again once it's fixed (ask the hub chat).\n${fails}`);
   }
   git('add', '-A', '--', ...touched);
   if (git('status', '--porcelain', '--', ...touched)) {
-    git('commit', '--quiet', '-m', `${created ? 'Add and publish' : backfill ? 'Add' : 'Publish'} ${app.name} ${family ? '(family)' : build.version}`);
+    git('commit', '--quiet', '-m', `${created ? 'Add and publish' : backfill ? 'Add' : 'Publish'} ${app.name} ${family ? '(family)' : build.version}${addWeb ? ' web app' : ''}`);
     pushWithRetry();
     say(c.ok(`\nPushed. The site rebuilds in about a minute.`));
   }
@@ -555,6 +609,7 @@ async function waitLive(app, build) {
   say(c.ok(` live.`));
   say(`\n${c.b(`${app.name} ${build.version} is out.`)} ${site.baseUrl}/apps/${app.id}/`);
   if (plats.includes('android')) say('Phones see it at their next daily check, or straight away via Help › Check for updates.');
+  if (plats.includes('web')) say(`Web app: ${site.baseUrl}/web/${app.id}/  People who have it open get "New version" the next time it checks (on opening, or when they come back to it).`);
   const link = plats.includes('android') ? `${site.baseUrl}/get/${app.id}/android/` : `${site.baseUrl}/apps/${app.id}/`;
   say(c.dim('\nReady to paste (WhatsApp, Telegram…):'));
   say(`${app.name} ${build.version} is out! ${build.notes}\nAlready have it? Open the app and tap Update.\nNew to it? ${link}`);
@@ -566,6 +621,7 @@ async function pull() {
   const reason = typeof flags.reason === 'string' ? flags.reason : stop('Give a --reason "…" (shown on the site).');
   const r = (app.releases || []).find(x => x.version === version) || stop(`${app.name} ${version} isn't published.`);
   if (r.status === 'pulled') stop('Already pulled.');
+  if (r.files.some(f => f.kind === 'web') && latestFor(app, 'web') === r) stop(`${version} is the web app that's online now. A web app can't go back to an older version (only the newest copy is kept), so publish a fixed web version instead: it replaces this one for everyone.`);
   const before = { android: androidFeed(SITE(), app), windows: windowsFeed(SITE(), app) };
   const raw = readJson(app._file);
   Object.assign(raw.releases.find(x => x.version === version), { status: 'pulled', pulledReason: reason });
@@ -669,6 +725,8 @@ async function move() {
   say(`  older versions keep their notes; their old public links are not shown anywhere`);
   say(`  website keeps: privacy and terms pages, and an "invite only" page at /apps/${app.id}/`);
   if (flags['delete-public']) say(c.bad(`  then deletes the public GitHub releases of ${app.name}`));
+  const hadWeb = !!raw.platforms?.web;
+  if (hadWeb) say(c.bad(`  its web app is taken offline (web apps are public, so they can't be family-only yet)`));
   if (!(await confirm('Go ahead?'))) stop('Cancelled.');
   git('pull', '--ff-only', '--quiet');
   const tmp = fs.mkdtempSync(path.join(process.env.TEMP || process.env.TMPDIR || '/tmp', 'zgs-'));
@@ -678,6 +736,7 @@ async function move() {
     let rel = await gh('GET', FAPI(`/releases/tags/${encodeURIComponent(tag)}`));
     if (!rel) rel = await gh('POST', FAPI('/releases'), JSON.stringify({ tag_name: tag, name: `${app.name} ${r.version}`, body: r.notes, make_latest: 'false' }), { 'Content-Type': 'application/json' });
     for (const f of r.files) {
+      if (f.kind === 'web') continue;
       let asset = rel.assets.find(a => a.name === f.name && a.state === 'uploaded' && a.size === f.size);
       if (!asset) {
         say(`  copying ${f.name} (${mb(f.size)})…`);
@@ -695,6 +754,12 @@ async function move() {
     }
   }
   fs.rmSync(tmp, { recursive: true, force: true });
+  if (hadWeb) {
+    for (const r of raw.releases || []) r.files = r.files.filter(f => f.kind !== 'web');
+    raw.releases = (raw.releases || []).filter(r => r.files.length);
+    delete raw.platforms.web;
+    fs.rmSync(path.join(ROOT, 'web', app.id), { recursive: true, force: true });
+  }
   raw.visibility = to;
   const dir = appDir(app.id);
   for (const rel of ['icon.webp', 'icon.png', 'icon.jpg', ...(raw.screenshots || []).map(s => 'shots/' + (typeof s === 'string' ? s : s.file))])
@@ -704,7 +769,7 @@ async function move() {
   fs.rmSync(path.join(dir, 'shots'), { recursive: true, force: true });
   fs.rmSync(path.join(dir, 'share.png'), { force: true });
   _data = null; loadData();
-  git('add', '-A', '--', app._file, path.join('content', 'apps', app.id));
+  git('add', '-A', '--', app._file, path.join('content', 'apps', app.id), ...(hadWeb ? [path.join('web', app.id)] : []));
   git('commit', '--quiet', '-m', `${app.name} is now ${to === 'owner' ? '"just me"' : 'family & friends only'}`);
   pushWithRetry();
   say(c.ok(`\n${app.name} moved. ${to === 'owner' ? 'Only you see it, in Zenith Owner and' : 'Invited people find it'} on ${SITE().baseUrl}/family/`));
@@ -751,6 +816,7 @@ async function moveOut(app0, to) {
     let rel = await gh('GET', `/releases/tags/${encodeURIComponent(tag)}`);
     if (!rel) rel = await gh('POST', '/releases', JSON.stringify({ tag_name: tag, target_commitish: git('rev-parse', 'HEAD'), name: `${app0.name} ${r.version}`, body: r.notes, make_latest: 'false' }), { 'Content-Type': 'application/json' });
     for (const f of r.files) {
+      if (f.kind === 'web') continue;
       let asset = rel.assets.find(a => a.name === f.name && a.state === 'uploaded' && a.size === f.size);
       if (!asset) {
         say(`  copying ${f.name} (${mb(f.size)})…`);
@@ -806,7 +872,7 @@ async function addSelfDownloads(urls, message) {
 /** zgs mine <app> [platform]: "that download was me", for the newest version's main file. */
 async function mine() {
   const app = appById(pos[0] || stop('Usage: zgs mine <app> [android|windows]'));
-  const plats = pos[1] ? [pos[1]] : Object.keys(app.platforms);
+  const plats = pos[1] ? [pos[1]] : Object.keys(app.platforms).filter(p => p !== 'web');
   const urls = [];
   for (const p of plats) {
     const r = latestFor(app, p) || stop(`${app.name} has no ${p} version.`);
