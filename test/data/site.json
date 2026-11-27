@@ -14,7 +14,9 @@
   "family": {
     "repo": "o/family",
     "supabaseUrl": "https://example.supabase.co",
-    "publishableKey": "sb_publishable_test"
+    "publishableKey": "sb_publishable_test",
+    "googleClientId": "000000000000-test.apps.googleusercontent.com",
+    "useSigninPage": true
   },
   "legacyBaseUrl": "https://old.example.github.io",
   "legacyRepo": "old/old.github.io"

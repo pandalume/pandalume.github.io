@@ -7,8 +7,8 @@
   const ZENITH_SIGNIN = root.dataset.signin === 'zenith' && window.zgGoogle;      // Google sign-in via /signin/
   let back = ZENITH_SIGNIN ? window.zgGoogle.finish(SB, KEY) : Promise.resolve(null);
   const FN = SB + '/functions/v1/family', HOME = location.origin + '/family/', STORE = 'zg-family-session';
-  const KINDS = { apk: 'android', setup: 'windows', portable: 'windows' };
-  const LABEL = { apk: 'Download for Android', setup: 'Windows installer', portable: 'Windows portable' };
+  const KINDS = { apk: 'android', setup: 'windows', portable: 'windows', web: 'web' };
+  const LABEL = { apk: 'Download for Android', setup: 'Windows installer', portable: 'Windows portable', web: 'Open web app' };
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const mb = n => (n / 1e6).toFixed(1) + ' MB';
   const date = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
@@ -79,9 +79,10 @@ ${everyone.length ? `<section><div class="sec-row"><h2 class="sec">Public <span 
   }
 
   const latestFor = (app, p) => (app.releases || []).find(r => r.status === 'live' && r.files.length && r.files.some(f => KINDS[f.kind] === p));
-  const PLAT = { android: 'Android', windows: 'Windows' };
-  const HINT = { apk: 'Android app', setup: 'Installs with a Start menu shortcut', portable: 'Runs without installing' };
-  const chips = app => Object.keys(app.platforms || {}).sort((x, y) => (x === 'android' ? 0 : 1) - (y === 'android' ? 0 : 1)).map(p => `<span class="chip">${PLAT[p]}</span>`).join('');
+  const PLAT = { android: 'Android', windows: 'Windows', web: 'Web app' };
+  const ORDER = { android: 0, windows: 1, web: 2 }, byPlat = (x, y) => (ORDER[x] ?? 9) - (ORDER[y] ?? 9);
+  const HINT = { apk: 'Android app', setup: 'Installs with a Start menu shortcut', portable: 'Runs without installing', web: 'Runs in your browser: iPhone, iPad, any computer' };
+  const chips = app => Object.keys(app.platforms || {}).sort(byPlat).map(p => `<span class="chip">${PLAT[p]}</span>`).join('');
   let apps = [], me = null;
 
   // The list, laid out like the main site's home page: apps and games apart, by genre when there are many.
@@ -122,7 +123,7 @@ ${mine.length ? `<section><div class="sec-row"><h2 class="sec">Just me <span cla
 
   // One app, laid out like its page on the main site.
   function detailView(app) {
-    const plats = Object.keys(app.platforms || {}).sort((x, y) => (x === 'android' ? 0 : 1) - (y === 'android' ? 0 : 1));
+    const plats = Object.keys(app.platforms || {}).sort(byPlat);
     const latestAny = (app.releases || []).find(r => r.status === 'live');
     const facts = [latestAny && ['Version', latestAny.version], latestAny && ['Updated', date(latestAny.date)],
       ...plats.map(p => app.platforms[p].requires && [plats.length > 1 ? PLAT[p] : 'Requires', app.platforms[p].requires.replace(' or newer', '+')])].filter(Boolean);
@@ -130,10 +131,11 @@ ${mine.length ? `<section><div class="sec-row"><h2 class="sec">Just me <span cla
       const r = latestFor(app, p), files = r ? r.files.filter(f => KINDS[f.kind] === p) : [];
       return `<div class="card dl" data-platform="${p}"><div class="dl-head"><h3>${PLAT[p]}</h3><span class="muted small">${esc(app.platforms[p].requires || '')}</span></div>
 ${r ? `<p class="ver">Version ${esc(r.version)} · ${date(r.date)}</p>
-<div class="btns">${files.map((f, i) => `<button type="button" class="btn ${i ? 'btn-ghost' : 'btn-iri'}" data-act="dl" data-app="${esc(app.id)}" data-name="${esc(f.name)}"><span>${LABEL[f.kind]}</span><small>${mb(f.size)} · ${HINT[f.kind]}</small></button>`).join('')}</div>
+<div class="btns">${files.map((f, i) => f.kind === 'web' ? `<a class="btn btn-iri" href="/family/web/${esc(app.id)}/" target="_blank" rel="noopener"><span>${LABEL.web}</span><small>${HINT.web}</small></a>` : `<button type="button" class="btn ${i ? 'btn-ghost' : 'btn-iri'}" data-act="dl" data-app="${esc(app.id)}" data-name="${esc(f.name)}"><span>${LABEL[f.kind]}</span><small>${mb(f.size)} · ${HINT[f.kind]}</small></button>`).join('')}</div>
+${p === 'web' ? '<p class="small dl-hint">Opens in your browser, signed in with this same Google account, and always the newest version. To keep it like an app, add it to your home screen (iPhone/iPad: <b>Share › Add to Home Screen</b>).</p>' : ''}
 ${p === 'android' ? '<p class="small dl-hint">Chrome will ask <b>"File might be harmful"</b> because the app isn\'t from the Play Store. Tap <b>Download anyway</b>, then open the file to install.</p>' : ''}
 <p class="notes"><b>What's new:</b> ${esc(r.notes)}</p>
-<p class="small"><a href="/install/#${p}">How to install on ${PLAT[p]}</a></p>` : '<p class="muted">No download yet. Check back soon.</p>'}</div>`;
+<p class="small">${p === 'web' ? '<a href="/install/#web">Add it to your home screen</a>' : `<a href="/install/#${p}">How to install on ${PLAT[p]}</a>`}</p>` : '<p class="muted">No download yet. Check back soon.</p>'}</div>`;
     }).join('');
     const shots = (app.screenshots || []).map(s => typeof s === 'string' ? { file: s } : s);
     const ds = app.dataSafety;

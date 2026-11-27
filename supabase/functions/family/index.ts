@@ -14,6 +14,9 @@
 // GET  ?action=download&app=<id>&name=<file>    { url } : a GitHub link valid for a few minutes
 //                                               (&go=1 answers with a redirect instead)
 // GET  ?action=feed&app=<id>&platform=android   the same update feed as public apps, with fresh links
+// GET  ?action=webapp&app=<id>&have=<sha256>    the app's web version as one bundle (gzip), for its gate page
+//                                               /family/web/<id>/; 204 when <sha256> is already the newest.
+//                                               Called on every open, so taking someone off the list locks them out
 // GET  ?action=members                          owners only: the invite list, and who asked to join
 // POST ?action=members  {email,name,apps}       owners only: invite or change someone (clears their request)
 // DELETE ?action=members&email=<email>          owners only: remove someone
@@ -65,7 +68,7 @@ const CORS = {
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-const KINDS: Record<string, string> = { apk: 'android', setup: 'windows', portable: 'windows' };
+const KINDS: Record<string, string> = { apk: 'android', setup: 'windows', portable: 'windows', web: 'web' };
 
 async function gh(path: string, accept = 'application/vnd.github+json', redirect: RequestRedirect = 'follow') {
   const token = Deno.env.get('FAMILY_GITHUB_TOKEN');
@@ -132,7 +135,7 @@ Deno.serve(async req => {
     // feed (no sign-in needed, public links). Family apps have no public feed, so this never exposes one.
     if (action === 'feed' || action === 'version') {
       const id = q.get('app') ?? '', platform = q.get('platform') ?? '';
-      if (/^[a-z0-9-]+$/.test(id) && /^(android|windows)$/.test(platform)) {
+      if (/^[a-z0-9-]+$/.test(id) && /^(android|windows|web)$/.test(platform)) {
         const pub = await fetch(`https://pandalume.github.io/api/${id}/${platform}.json`, { headers: { 'User-Agent': 'zenith-family' } }).catch(() => null);
         if (pub?.ok) return json(await pub.json());
       }
@@ -195,7 +198,7 @@ Deno.serve(async req => {
 
     if (!member) {
       // Not on the list (yet): remember the request so the owner can add them with one tap.
-      if (action === 'catalog') {
+      if (action === 'catalog' || action === 'webapp') {
         const name = who.name;
         const { data: was } = await db.from('family_requests').select('visits').eq('email', email).maybeSingle();
         await db.from('family_requests').upsert({ email, name, last_seen: new Date().toISOString(), visits: (was?.visits ?? 0) + 1 });
@@ -232,6 +235,19 @@ Deno.serve(async req => {
       if (!f) return json({ error: 'Only the current version can be downloaded.' }, 404);
       const url = await signedUrl(f.assetId);
       return q.get('go') ? Response.redirect(url, 302) : json({ url, name: f.name, size: f.size, sha256: f.sha256 });
+    }
+
+    if (action === 'webapp') {
+      // Web apps are for family & friends only: a just-me app has no web version (see Studio Standards §13).
+      const r = app.visibility === 'family' ? latestFor(app, 'web') : null;
+      const f = r?.files.find((f: any) => f.kind === 'web');
+      if (!f) return json({ error: 'No web version.' }, 404);
+      const head = { ...CORS, 'Cache-Control': 'no-store', 'X-Version': r.version, 'X-Sha256': f.sha256,
+        'Access-Control-Expose-Headers': 'X-Version, X-Sha256' };
+      if (q.get('have') === f.sha256) return new Response(null, { status: 204, headers: head });
+      const bytes = await fetch(await signedUrl(f.assetId));
+      if (!bytes.ok) throw new Error(`GitHub ${bytes.status} for the web bundle`);
+      return new Response(bytes.body, { headers: { ...head, 'Content-Type': 'application/octet-stream' } });
     }
 
     if (action === 'feed') {

@@ -289,6 +289,21 @@ function familyPage() {
   });
 }
 
+// A family app's web version: this gate signs the person in and opens the app once the Family server has checked the
+// invite list (assets/famweb.js). The app's own files are never on this site; see assets/famweb-sw.js.
+function familyWebGate(app) {
+  const f = site.family;
+  return page({
+    title: `${app.name} · Family & friends`, description: `${app.name}, shared with family and friends.`, noindex: true,
+    csp: `default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self' ${f.supabaseUrl}; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'`,
+    scripts: `\n<link rel="manifest" href="/family/web/${app.id}/manifest.webmanifest">\n<script src="${A('/assets/gsignin.js')}" defer></script>\n<script src="${A('/assets/famweb.js')}" defer></script>`,
+    body: `<section class="hero"><h1>${esc(app.name)}</h1></section>
+<div id="famweb" data-app="${esc(app.id)}" data-name="${esc(app.name)}" data-supabase="${esc(f.supabaseUrl)}" data-key="${esc(f.publishableKey)}">
+<noscript><p>${esc(app.name)} needs JavaScript.</p></noscript><p class="muted">Opening ${esc(app.name)}…</p></div>
+<p class="small muted">Signing in tells Zenith only your email address, to check who the app is shared with. See the <a href="/privacy.html">privacy policy</a>.</p>`
+  });
+}
+
 // Zenith's sign-in page (/signin/): Google sign-in that stays on pandalume.github.io (see assets/signin.js).
 // Used by the Family and Owner pages and by the apps (Studio Standards §11). Built when site.json has
 // family.googleClientId (the public ID of the Google sign-in client).
@@ -600,6 +615,17 @@ write('terms.html', docPage('terms'));
 write('404.html', page({ title: `Not found · ${site.name}`, description: 'Page not found', noindex: true, body: `<section class="hero"><h1>Page not found</h1><p>That page doesn't exist, or it moved.</p></section><ul class="updates">${listed.map(a => `<li><a class="upd" href="/apps/${a.id}/"><img class="icon" src="${iconOf(a.id)}" alt="" width="44" height="44"><span><b>${esc(a.name)}</b><br><span class="small">${esc(a.tagline)}</span></span></a></li>`).join('')}</ul><p><a href="/">All apps</a></p>` }));
 write('updates/index.html', updatesPage());
 if (site.family) write('family/index.html', familyPage());
+// family web apps: one service worker for all of them, and a gate page (with its home-screen manifest) per app
+if (site.family?.googleClientId) {
+  fs.mkdirSync(path.join(OUT, 'family', 'web'), { recursive: true });
+  fs.copyFileSync(path.join(ROOT, 'assets', 'famweb-sw.js'), path.join(OUT, 'family', 'web', 'sw.js'));
+  for (const app of apps.filter(a => a.visibility === 'family' && a.platforms.web)) {
+    write(`family/web/${app.id}/index.html`, familyWebGate(app));
+    json(`family/web/${app.id}/manifest.webmanifest`, { name: app.name, short_name: app.name, id: `/family/web/${app.id}/`, start_url: `/family/web/${app.id}/`,
+      scope: `/family/web/${app.id}/`, display: 'standalone', background_color: '#070a0f', theme_color: '#070a0f',
+      icons: [{ src: '/assets/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }] });
+  }
+}
 if (site.family?.googleClientId) write('signin/index.html', signinPage());
 fs.copyFileSync(path.join(ROOT, 'tools', 'vendor', 'qrcode.cjs'), path.join(OUT, 'assets', 'qrcode.js'));   // for the owner app
 if (site.family) {

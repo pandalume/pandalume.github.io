@@ -84,8 +84,10 @@ export function validate(site, apps) {
         if (!KINDS[f.kind]) rv(`file ${f.name}: kind must be apk, setup, portable or web`);
         if (!a.platforms?.[KINDS[f.kind]]) rv(`file ${f.name}: app has no ${KINDS[f.kind]} platform`);
         if (!https(f.url)) rv(`file ${f.name}: url must be https`);
-        if (f.kind === 'web' && f.url !== `${site.baseUrl}/web/${a.id}/`) rv(`file ${f.name}: a web app lives at ${site.baseUrl}/web/${a.id}/`);
-        if (f.kind === 'web' && !['public', 'unlisted', undefined].includes(a.visibility)) rv(`file ${f.name}: web apps are public, so the app must be public or unlisted`);
+        // public web apps are on this site; family ones are a private file opened via /family/web/<id>/; just-me apps have none
+        if (f.kind === 'web' && ['public', 'unlisted', undefined].includes(a.visibility) && f.url !== `${site.baseUrl}/web/${a.id}/`) rv(`file ${f.name}: a web app lives at ${site.baseUrl}/web/${a.id}/`);
+        if (f.kind === 'web' && a.visibility === 'family' && f.url.startsWith(`${site.baseUrl}/`)) rv(`file ${f.name}: a family web app must stay in the private repository, not on the public site`);
+        if (f.kind === 'web' && ['owner', 'private'].includes(a.visibility)) rv(`file ${f.name}: just-me and private apps don't have a web version`);
         if (!/^[0-9a-f]{64}$/.test(f.sha256 || '')) rv(`file ${f.name}: sha256 missing`);
         if (!(f.size > 0)) rv(`file ${f.name}: size missing`);
         if (r.permissions != null && !(Array.isArray(r.permissions) && r.permissions.every(x => typeof x === 'string'))) rv('permissions must be a list of permission names');

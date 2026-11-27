@@ -178,6 +178,16 @@ t('app page: Open web app button, no hash or download size for it', () => {
 t('/get/<id>/web/ forwards to the web app', () => assert.ok(html('get/bambowl/web/index.html').includes('/web/bambowl/')));
 t('install help explains web apps', () => assert.match(html('install/index.html'), /id="web"/));
 t('Android feed unchanged by the web app', () => { const f = readJson(out('api/bambowl/android.json')); assert.equal(f.code, 8); assert.match(f.apk, /\.apk$/); });
+t('family web app: a sign-in gate only, never its files', () => {
+  const g = html('family/web/secret-app/index.html');
+  assert.ok(g.includes('/assets/famweb.js') && g.includes('/assets/gsignin.js') && g.includes('noindex') && g.includes('data-app="secret-app"'));
+  assert.match(g, /connect-src 'self' https:\/\/example\.supabase\.co; worker-src 'self'/);
+  const m = readJson(out('family/web/secret-app/manifest.webmanifest'));
+  assert.equal(m.start_url, '/family/web/secret-app/'); assert.equal(m.scope, '/family/web/secret-app/');
+  assert.ok(fs.existsSync(out('family/web/sw.js')));
+  assert.ok(!fs.existsSync(out('web/secret-app')) && !fs.existsSync(out('api/secret-app/web.json')) && !fs.existsSync(out('family/web/secret-app/app')));
+});
+t('just-me apps get no web gate', () => assert.ok(!fs.existsSync(out('family/web/only-me'))));
 t('apps without a web version get no web feed or folder', () => assert.ok(!fs.existsSync(out('api/quillix-note/web.json')) && !fs.existsSync(out('web/quillix-note'))));
 
 console.log('rules (bad data is refused before anything is written)');
@@ -194,7 +204,8 @@ bad('pulled without reason', a => { delete a.releases[0].pulledReason; }, /pulle
 bad('changes must be short lines', a => { a.releases[1].changes = ['ok', '']; }, /changes must be/);
 bad('http download link', a => { a.releases[1].files[0].url = 'http://x/y.apk'; }, /https/);
 bad('web app must live at /web/<id>/', a => { a.releases[1].files.find(f => f.kind === 'web').url = 'https://example.com/x/'; }, /web app lives at/);
-bad('web app needs a public app', a => { a.visibility = 'family'; }, /web apps are public/);
+bad('a family web app can\'t sit on the public site', a => { a.visibility = 'family'; }, /must stay in the private repository/);
+bad('just-me apps have no web version', a => { a.visibility = 'owner'; }, /don't have a web version/);
 t('build refuses invalid data and leaves output untouched', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zg-bad-'));
   fs.cpSync(DATA, tmp, { recursive: true });

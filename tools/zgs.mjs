@@ -20,6 +20,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import os from 'node:os';
+import zlib from 'node:zlib';
 import readline from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 import https from 'node:https';
@@ -211,6 +213,19 @@ function findWeb(app, folder) {
   const h = crypto.createHash('sha256');
   for (const f of list) h.update(`${f.rel}\0${sha256File(f.full)}\n`);
   return { kind: 'web', full: dir, name: `${app.id}-web-${v}`, version: v, size, sha256: h.digest('hex'), list };
+}
+
+// A family web app goes to the private repository as one file: gzip of {app, version, files: {path: base64}}.
+// Its gate page (/family/web/<id>/) fetches it through the Family server after sign-in and unpacks it in the browser.
+const WEB_MAX_FAMILY = 40 * 1024 * 1024;
+function packWeb(app, web) {
+  if (web.size > WEB_MAX_FAMILY) stop(`The web app is ${mb(web.size)}. A family web app is downloaded whole after sign-in, so the limit is ${mb(WEB_MAX_FAMILY)}.`);
+  const files = {};
+  for (const f of web.list) files[f.rel] = fs.readFileSync(f.full).toString('base64');
+  const gz = zlib.gzipSync(Buffer.from(JSON.stringify({ app: app.id, version: web.version, files })), { level: 9 });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zgs-web-')), name = `${app.id}-web-${web.version}.zgw`;
+  fs.writeFileSync(path.join(dir, name), gz);
+  Object.assign(web, { full: path.join(dir, name), name, upload: name, size: gz.length, sha256: sha256File(path.join(dir, name)) });
 }
 
 /** Finds the build files to publish for an app and works out their version. */
@@ -440,11 +455,12 @@ async function publish(newApp = null) {
     if (!backfill && codes.some(r => r.code >= build.code)) stop(`versionCode ${build.code} is not higher than every published one (highest: ${Math.max(...codes.map(r => r.code))}). Phones only update to a higher versionCode.`);
   }
   for (const f of build.files) { if (f.kind !== 'web') f.sha256 = sha256File(f.full); f.upload = f.name.replace(/[^\w.-]+/g, '-'); }
-  const webBuild = build.files.find(f => f.kind === 'web'), uploads = build.files.filter(f => f.kind !== 'web');
-  if (webBuild && (family || PRIVATE_REPO(app.visibility))) stop(`${app.name} is ${app.visibility === 'owner' ? 'just for you' : 'family & friends only'}, and web apps are public for now (anyone with the link can open them). Publish the web app once the app is public, or use --platform to publish the other builds.`);
+  const webBuild = build.files.find(f => f.kind === 'web'), uploads = build.files.filter(f => f.kind !== 'web' || family);
+  if (webBuild && vis === 'owner') stop(`${app.name} is just for you, and Just-me apps don't get a web version (the APK or Windows app is all you need). Use --platform to publish the other builds.`);
+  if (webBuild && family) packWeb(app, webBuild);                    // family: one private file, opened only after sign-in
   if (webBuild && backfill) stop('--backfill is not for web apps: only the newest web version is kept online.');
   if (webBuild && !app.platforms.web) { app.platforms = { ...app.platforms, web: { requires: 'Any modern browser' } }; say(c.dim('  first web version: adds "Web app" to the app page')); }
-  const WEB_URL = `${SITE().baseUrl}/web/${app.id}/`;
+  const WEB_URL = family ? `${SITE().baseUrl}/family/web/${app.id}/` : `${SITE().baseUrl}/web/${app.id}/`;
 
   let notes = addWeb ? same.notes : typeof flags.notes === 'string' ? flags.notes : '';
   let changes = addWeb ? (same.changes || []) : typeof flags.changes === 'string' ? flags.changes.split('|').map(x => x.trim()).filter(Boolean) : [];
@@ -467,13 +483,13 @@ async function publish(newApp = null) {
   const release = { version: build.version, ...(build.code != null && { code: build.code }), date, status: 'live', notes, ...(changes.length && { changes }), ...(build.permissions && { permissions: build.permissions }), files: [] };
   // Check the finished data would be valid *before* touching GitHub.
   const withFiles = files => addWeb ? { ...same, files: [...same.files, ...files] } : { ...release, files };
-  const preview = [...all.filter(r => !addWeb || r !== same), withFiles( build.files.map(f => ({ kind: f.kind, name: f.upload, url: f.kind === 'web' ? WEB_URL : 'https://example.invalid/x', size: f.size, sha256: f.sha256 })))]
+  const preview = [...all.filter(r => !addWeb || r !== same), withFiles( build.files.map(f => ({ kind: f.kind, name: f.upload, url: f.kind === 'web' && !family ? WEB_URL : 'https://example.invalid/x', size: f.size, sha256: f.sha256 })))]
     .sort((a, b) => cmpRelease(b, a));
   const errs = validate(SITE(), [{ ...app, releases: preview }]);
   if (errs.length) stop('This release would make the data invalid:\n  ' + errs.join('\n  '));
 
   say(`\n  ${c.b(app.name + ' ' + build.version)}${build.code != null ? ` (versionCode ${build.code})` : ''}  ·  ${date}${backfill ? '  ·  history only' : ''}`);
-  for (const f of build.files) say(f.kind === 'web' ? `  web      ${f.list.length} files, ${mb(f.size)}  →  ${WEB_URL}` : `  ${f.kind.padEnd(8)} ${f.name}  ${mb(f.size)}\n           sha256 ${c.dim(f.sha256)}`);
+  for (const f of build.files) say(f.kind === 'web' ? `  web      ${f.list.length} files, ${mb(f.size)}${family ? ' (one private file)' : ''}  →  ${WEB_URL}${family ? c.dim('  signed-in family only') : ''}` : `  ${f.kind.padEnd(8)} ${f.name}  ${mb(f.size)}\n           sha256 ${c.dim(f.sha256)}`);
   say(`  notes    ${notes}`);
   for (const ch of changes) say(`           • ${ch}`);
   if (app.platforms.android && build.code != null) say(`  ${c.ok('✓')} signed with the ${app.name} release key`);
@@ -526,7 +542,7 @@ async function publish(newApp = null) {
   }
   // 3. announce: one commit updates page, buttons and feeds together
   // selfDownloads: the check download above, so it isn't counted as someone downloading the app
-  if (webBuild) webBuild.url = WEB_URL;
+  if (webBuild && !family) webBuild.url = WEB_URL;
   release.files = build.files.map(f => ({ kind: f.kind, name: f.upload, url: f.url, size: f.size, sha256: f.sha256, ...(f.downloaded && { selfDownloads: 1 }), ...(family && { assetId: f.assetId }) }));
   let raw = created ? created.raw : family ? Object.fromEntries(Object.entries(fresh).filter(([k]) => k !== '_file')) : readJson(fresh._file);
   if (family) raw.visibility = vis;
@@ -544,7 +560,7 @@ async function publish(newApp = null) {
   }
   writeJson(fresh._file, raw);
   const touched = [fresh._file, path.join('content', 'apps', app.id)];
-  if (webBuild) {                                                     // the web app itself: replaced whole, so old files don't linger
+  if (webBuild && !family) {                                          // the web app itself: replaced whole, so old files don't linger
     const dst = path.join(ROOT, 'web', app.id);
     fs.rmSync(dst, { recursive: true, force: true });
     for (const f of webBuild.list) { const to = path.join(dst, ...f.rel.split('/')); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(f.full, to); }
@@ -575,6 +591,7 @@ async function publish(newApp = null) {
   if (family) {
     say(`\n${c.b(`${app.name} ${build.version} is out for family & friends.`)} ${SITE().baseUrl}/family/`);
     say('Invited people see it there now. The app finds it at its next update check.');
+    if (webBuild) say(`Web app: ${SITE().baseUrl}/family/web/${app.id}/  Opens after signing in, for people on its list. Anyone who has it gets the new version the next time they open it.`);
   } else if (!backfill) await waitLive(app, { ...build, notes });
 }
 
@@ -726,7 +743,7 @@ async function move() {
   say(`  website keeps: privacy and terms pages, and an "invite only" page at /apps/${app.id}/`);
   if (flags['delete-public']) say(c.bad(`  then deletes the public GitHub releases of ${app.name}`));
   const hadWeb = !!raw.platforms?.web;
-  if (hadWeb) say(c.bad(`  its web app is taken offline (web apps are public, so they can't be family-only yet)`));
+  if (hadWeb) say(c.bad(`  its public web app is taken offline; publish the web folder again to put it behind the Family sign-in`));
   if (!(await confirm('Go ahead?'))) stop('Cancelled.');
   git('pull', '--ff-only', '--quiet');
   const tmp = fs.mkdtempSync(path.join(process.env.TEMP || process.env.TMPDIR || '/tmp', 'zgs-'));
@@ -837,6 +854,12 @@ async function moveOut(app0, to) {
   }
   fs.rmSync(tmp, { recursive: true, force: true });
   for (const r of raw.releases || []) if (!current.has(r)) for (const f of r.files) delete f.assetId;
+  if (raw.platforms?.web) {                                           // the family web app was a private bundle: publish it again
+    for (const r of raw.releases || []) r.files = r.files.filter(f => f.kind !== 'web');
+    raw.releases = (raw.releases || []).filter(r => r.files.length);
+    delete raw.platforms.web;
+    say(c.dim(`  its family web app isn't carried over: publish the web folder again to put it on the public site`));
+  }
   raw.visibility = to;
   applyListing(raw, L, false);
   const errs = validate(SITE(), [{ ...raw, _file: app0._file }]);
