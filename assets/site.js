@@ -4,10 +4,21 @@ const ua = navigator.userAgent, IOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintos
 // iPhone, iPad, Mac and Linux can't run the APK or the Windows app, so their own platform is the web app (if there is one)
 const MINE = /Android/i.test(ua) ? 'android' : /Windows/i.test(ua) ? 'windows' : 'web';
 
+// Leaves with a short fade (when motion is allowed); removed as soon as it's done, never left behind.
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)');
+function leave(el, cls = 'out') {
+  if (REDUCED.matches || !el.isConnected) return el.remove();
+  el.classList.add(cls);
+  el.addEventListener('animationend', () => el.remove(), { once: true });
+  setTimeout(() => el.remove(), 400);                                // in case the animation never runs (hidden tab)
+}
+window.zgLeave = leave;
 function toast(msg) {
   const t = Object.assign(document.createElement('div'), { className: 'toast', textContent: msg, role: 'status' });
-  document.body.append(t); setTimeout(() => t.remove(), 1800);
+  document.body.append(t); setTimeout(() => leave(t), 1800);
 }
+// Runs fn after the first frame is on screen, so start-up work (server calls) never delays the first paint.
+window.zgAfterPaint = fn => requestAnimationFrame(() => setTimeout(fn, 0));
 
 // Family & friends and Zenith Owner are "homes": once you're in one, Zenith's Apps link, logo and Home take you
 // back there instead of to public Zenith, and other pages (an app's page, What's new, Install help) show a way back.
@@ -82,6 +93,11 @@ document.addEventListener('click', async e => {
 
 // Your own platform first, and the phone download bar when the download panel is off screen.
 document.addEventListener('DOMContentLoaded', () => {
+  const launch = $('.zg-launch');                                    // done (or not shown): take it out of the page
+  if (launch) {
+    if (getComputedStyle(launch).display === 'none') launch.remove();
+    else { launch.addEventListener('animationend', e => { if (e.target === launch) launch.remove(); }); setTimeout(() => launch.remove(), 1500); }
+  }
   homeLinks();
   const card = MINE && $(`.dl[data-platform="${MINE}"]`);
   if (card) { card.classList.add('mine'); card.parentElement.prepend(card); }
@@ -98,9 +114,13 @@ document.addEventListener('DOMContentLoaded', () => {
 // Works for every gallery on any page (public app pages, and the Family page, which draws its own later).
 function initGallery() {
   let imgs = [], i = 0, box = null, x0 = null, pushed = false;
-  const show = n => { i = (n + imgs.length) % imgs.length; $('img', box).src = imgs[i]; const c = $('.lb-count', box); if (c) c.textContent = `${i + 1} / ${imgs.length}`; };
+  const show = n => {
+    i = (n + imgs.length) % imgs.length; const im = $('img', box);
+    if (im.getAttribute('src')) { im.classList.remove('swap'); void im.offsetWidth; im.classList.add('swap'); }   // replay the fade for the next one
+    im.src = imgs[i]; const c = $('.lb-count', box); if (c) c.textContent = `${i + 1} / ${imgs.length}`;
+  };
   const key = e => { if (e.key === 'Escape') close(); if (e.key === 'ArrowRight') show(i + 1); if (e.key === 'ArrowLeft') show(i - 1); };
-  function shut() { box?.remove(); box = null; document.removeEventListener('keydown', key); }
+  function shut() { if (box) leave(box, 'closing'); box = null; document.removeEventListener('keydown', key); }
   function close() { if (!box) return; shut(); if (pushed) { pushed = false; history.back(); } }
   window.addEventListener('popstate', () => { if (box) { pushed = false; shut(); } });
   document.addEventListener('click', e => {

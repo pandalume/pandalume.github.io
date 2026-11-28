@@ -88,10 +88,12 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">\n` : ''}<met
 <meta name="theme-color" content="#070a0f">${site.googleSiteVerification ? `\n<meta name="google-site-verification" content="${esc(site.googleSiteVerification)}">` : ''}
 <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<script src="${A('/assets/launch.js')}"></script>
 <link rel="stylesheet" href="${A('/assets/site.css')}">
 <script src="${A('/assets/site.js')}" defer></script>${scripts}
 </head>
 <body>
+<div class="zg-launch" aria-hidden="true"><img src="/assets/zg-logo.webp" alt="" width="88" height="88"></div>
 <a class="skip" href="#main">Skip to content</a>
 <header class="top"><div class="wrap top-in">
   <a class="brand" href="/">${LOGO}<span><b class="iri-text">ZENITH GEN</b><small>ORBIT</small></span></a>

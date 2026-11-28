@@ -190,6 +190,25 @@ t('family web app: a sign-in gate only, never its files', () => {
 t('just-me apps get no web gate', () => assert.ok(!fs.existsSync(out('family/web/only-me'))));
 t('apps without a web version get no web feed or folder', () => assert.ok(!fs.existsSync(out('api/quillix-note/web.json')) && !fs.existsSync(out('web/quillix-note'))));
 
+console.log('motion (Studio Standards: smooth on any phone)');
+t('only transform and opacity animate; nothing loops; reduced motion turns it all off', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'assets', 'site.css'), 'utf8');
+  assert.ok(!/infinite/.test(css), 'an animation loops forever');
+  assert.ok(!/transition\s*:\s*all/.test(css), 'transition: all');
+  for (const [, props] of css.matchAll(/transition(?:-property)?\s*:\s*([^;}]+)/g))
+    for (const part of props.split(',')) { const prop = part.trim().split(/\s+/)[0]; assert.ok(['transform', 'opacity', 'none'].includes(prop), `transition on ${prop}`); }
+  for (const [, body] of css.matchAll(/@keyframes [\w-]+ \{([^@]*?)\}\s*(?=\n|$)/g))
+    for (const [, prop] of body.matchAll(/([a-z-]+)\s*:/g)) assert.ok(['transform', 'opacity'].includes(prop), `keyframes animate ${prop}`);
+  assert.ok(!/backdrop-filter/.test(css), 'live blur');
+  assert.match(css, /prefers-reduced-motion: reduce\)\s*\{\s*\*, \*::before, \*::after \{ animation: none !important; transition: none !important; \}/);
+});
+t('launch screen: on every page, never blocks taps, under 1.5 s', () => {
+  const h = html('index.html'), css = fs.readFileSync(path.join(ROOT, 'assets', 'site.css'), 'utf8');
+  assert.ok(h.includes('class="zg-launch"') && /<script src="\/assets\/launch\.js\?v=\w+"><\/script>/.test(h));
+  assert.match(css, /\.zg-launch \{ position: fixed;[^}]*pointer-events: none;/);
+  assert.match(css, /\(display-mode: standalone\)/);
+});
+
 console.log('rules (bad data is refused before anything is written)');
 const good = appsData('bambowl');
 const bad = (name, mut, re) => t(name, () => {

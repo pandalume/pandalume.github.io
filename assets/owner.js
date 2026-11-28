@@ -40,7 +40,7 @@
     } catch { /* share sheet closed */ }
     return text;
   }
-  function toast(t) { const p = document.createElement('p'); p.className = 'owner-toast'; p.textContent = t; document.body.append(p); setTimeout(() => p.remove(), 1800); }
+  function toast(t) { const p = document.createElement('p'); p.className = 'owner-toast'; p.textContent = t; document.body.append(p); setTimeout(() => (window.zgLeave || (e => e.remove()))(p), 1800); }
   function showQr(item) {
     item = { ...item, qr: item.qr || qrSvg(item.url) };
     const box = document.createElement('div');
@@ -159,5 +159,5 @@ ${rs.length ? `<ul class="owner-apps">${rs.map(row).join('')}</ul>` : '<p class=
       root.innerHTML = '<p class="family-notice">Couldn\'t reach the server. Check your connection and try again.</p>';
     }
   }
-  start();
+  window.zgAfterPaint ? window.zgAfterPaint(start) : start();
 })();

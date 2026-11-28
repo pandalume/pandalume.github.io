@@ -123,5 +123,5 @@
     try { await install(res); } catch (err) { return have ? open() : set(`<p class="family-notice">Couldn't set up ${esc(NAME)}: ${esc(err.message)}.</p>`); }
     open();
   }
-  start();
+  window.zgAfterPaint ? window.zgAfterPaint(start) : start();
 })();

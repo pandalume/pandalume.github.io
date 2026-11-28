@@ -289,5 +289,5 @@ ${app ? detailView(app) : listView()}`);
       set(`<p class="family-notice">The Family page couldn't load (${esc(err.message)}). Try again in a minute.</p>`);
     }
   }
-  start();
+  window.zgAfterPaint ? window.zgAfterPaint(start) : start();
 })();
