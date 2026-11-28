@@ -191,7 +191,7 @@ t('just-me apps get no web gate', () => assert.ok(!fs.existsSync(out('family/web
 t('apps without a web version get no web feed or folder', () => assert.ok(!fs.existsSync(out('api/quillix-note/web.json')) && !fs.existsSync(out('web/quillix-note'))));
 
 console.log('motion (Studio Standards: smooth on any phone)');
-t('only transform and opacity animate; nothing loops; reduced motion turns it all off', () => {
+t('only transform and opacity animate; nothing loops; reduced motion keeps only short fades; hover motion needs a mouse', () => {
   const css = fs.readFileSync(path.join(ROOT, 'assets', 'site.css'), 'utf8');
   assert.ok(!/infinite/.test(css), 'an animation loops forever');
   assert.ok(!/transition\s*:\s*all/.test(css), 'transition: all');
@@ -200,7 +200,10 @@ t('only transform and opacity animate; nothing loops; reduced motion turns it al
   for (const [, body] of css.matchAll(/@keyframes [\w-]+ \{([^@]*?)\}\s*(?=\n|$)/g))
     for (const [, prop] of body.matchAll(/([a-z-]+)\s*:/g)) assert.ok(['transform', 'opacity'].includes(prop), `keyframes animate ${prop}`);
   assert.ok(!/backdrop-filter/.test(css), 'live blur');
-  assert.match(css, /prefers-reduced-motion: reduce\)\s*\{\s*\*, \*::before, \*::after \{ animation: none !important; transition: none !important; \}/);
+  const reduced = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(reduced, /\*, \*::before, \*::after \{ animation: none !important; transition: none !important; \}/);
+  for (const [, anim] of reduced.matchAll(/animation:\s*([\w-]+)/g)) assert.ok(['none', 'zg-fade'].includes(anim), `reduced motion still runs ${anim}`);
+  assert.ok(!/:hover\s*\{[^}]*transform/.test(css.replace(/@media \(hover: hover\)[^{]*\{[^}]*\{[^}]*\}[^}]*\}/g, '')), 'hover motion outside (hover: hover)');
 });
 t('launch screen: on every page, never blocks taps, under 1.5 s', () => {
   const h = html('index.html'), css = fs.readFileSync(path.join(ROOT, 'assets', 'site.css'), 'utf8');

@@ -6,9 +6,12 @@
   --text: #f1f5f9; --muted: #94a3b8; --cyan: #73E6D8; --purple: #818CF8; --lilac: #C084FC; --pink: #F472B6; --warn: #fbbf24;
   --iri: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 35%, var(--lilac) 70%, var(--pink) 100%);
   --r: 16px;
-  /* motion: only transform and opacity ever animate (no layout, shadow, blur or colour transitions) */
-  --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-spring: cubic-bezier(.34, 1.4, .64, 1);
-  --t-fast: 120ms; --t: 220ms; --t-slow: 320ms;
+  /* motion: only transform and opacity ever animate (no layout, shadow, blur or colour transitions).
+     Curves and durations from emilkowalski/skills (Shared AI Library, review-animations/STANDARDS.md):
+     strong ease-out for anything entering or responding, press 160 ms, UI under 300 ms, toasts 400 ms ease,
+     bounce only for rare moments (the launch logo). */
+  --ease-out: cubic-bezier(.23, 1, .32, 1); --ease-pop: cubic-bezier(.34, 1.3, .64, 1);
+  --t-press: 160ms; --t: 200ms; --t-slow: 280ms; --t-toast: 400ms;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -49,10 +52,11 @@ nav a:hover { color: var(--text); background: var(--bg2); text-decoration: none;
 .app-card { display: grid; grid-template-columns: 64px 1fr; gap: 6px 14px; color: var(--text); align-items: center; }
 /* hover: the card lifts (transform) and a ready-made glow layer fades in (opacity); nothing is repainted */
 .app-card { position: relative; transition: transform var(--t) var(--ease-out); }
+/* hover motion only with a real mouse: phones fire a false hover on every tap */
 .app-card::after { content: ""; position: absolute; inset: -1px; border-radius: inherit; border: 1px solid rgba(115, 230, 216, .4); box-shadow: 0 10px 30px -10px rgba(129, 140, 248, .3); opacity: 0; transition: opacity var(--t) var(--ease-out); pointer-events: none; }
-.app-card:hover { text-decoration: none; transform: translateY(-2px); }
-.app-card:hover::after { opacity: 1; }
-.app-card:active { transform: translateY(0) scale(.985); transition-duration: var(--t-fast); }
+.app-card:hover { text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { .app-card:hover { transform: translateY(-2px); } .app-card:hover::after { opacity: 1; } }
+.app-card:active { transform: scale(.98); transition-duration: var(--t-press); }
 .app-card h3 { margin: 0; font-size: 17px; } .app-card p { margin: 0; }
 .app-card .tag, .app-card .chips { grid-column: 1 / -1; }
 .icon { border-radius: 16px; background: var(--bg2); border: 1px solid var(--line2); object-fit: cover; }
@@ -77,13 +81,13 @@ nav a:hover { color: var(--text); background: var(--bg2); text-decoration: none;
 .dl-head h3 { margin: 0; }
 .ver { color: var(--muted); font-size: 13px; margin: 4px 0 12px; }
 .btns { display: flex; flex-direction: column; gap: 8px; }
-.btn { display: flex; flex-direction: column; padding: 11px 16px; border-radius: 12px; font-weight: 700; position: relative; transition: transform var(--t) var(--ease-spring); }
-.btn:active { transform: scale(.97); transition: transform var(--t-fast) var(--ease-out); }
+.btn { display: flex; flex-direction: column; padding: 11px 16px; border-radius: 12px; font-weight: 700; position: relative; transition: transform var(--t-press) var(--ease-out); }
+.btn:active { transform: scale(.97); }
 .btn small { font-weight: 500; font-size: 12px; opacity: .8; }
-.btn:hover { text-decoration: none; transform: scale(1.01); }
+.btn:hover { text-decoration: none; }
 .btn-iri { background: linear-gradient(135deg, var(--cyan), var(--purple) 50%, var(--lilac)); color: #070a0f; }
 .btn-iri::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 20px rgba(192, 132, 252, .45); opacity: 0; transition: opacity var(--t) var(--ease-out); pointer-events: none; }
-.btn-iri:hover::after { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .btn-iri:hover::after { opacity: 1; } }
 .btn-ghost { border: 1px solid var(--line2); color: var(--text); background: var(--bg2); }
 .btn-ghost:hover { border-color: var(--purple); }
 .notes { margin: 14px 0 8px; font-size: 14px; }
@@ -179,7 +183,7 @@ pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px
 .getbar .btn { padding: 9px 18px; flex-direction: row; }
 @media (min-width: 761px) { .getbar { display: none; } }
 @media (prefers-reduced-motion: reduce) { .getbar { transition: none; } }
-.toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 45; animation: zg-toast-in var(--t) var(--ease-spring); background: var(--bg2); border: 1px solid var(--purple); color: var(--text); padding: 8px 16px; border-radius: 99px; font-size: 13px; }
+.toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 45; animation: zg-toast-in var(--t-toast) ease; background: var(--bg2); border: 1px solid var(--purple); color: var(--text); padding: 8px 16px; border-radius: 99px; font-size: 13px; }
 
 @media (max-width: 600px) { .top { position: static; } }
 .foot a { display: inline-block; }
@@ -248,7 +252,7 @@ pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px
 .owner-qr-card { background: #fff; color: #070a0f; border-radius: 18px; padding: 22px; display: grid; gap: 8px; justify-items: center; text-align: center; max-width: 320px; }
 .owner-qr-card svg { width: 260px; height: 260px; }
 .owner-qr-card .muted { color: #555; }
-.owner-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); animation: zg-toast-in var(--t) var(--ease-spring); background: var(--bg2); border: 1px solid var(--line2); padding: 8px 16px; border-radius: 99px; z-index: 50; }
+.owner-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); animation: zg-toast-in var(--t-toast) ease; background: var(--bg2); border: 1px solid var(--line2); padding: 8px 16px; border-radius: 99px; z-index: 50; }
 
 /* app info, support (like Play's details) */
 .trust { margin: 4px 0 8px; }
@@ -313,28 +317,26 @@ button.btn-iri { color: #070a0f; }
 /* ---------- motion (Studio Standards: transform and opacity only; nothing loops; all off with reduced motion) ---------- */
 @keyframes zg-rise { from { opacity: 0; transform: translateY(8px); } }
 @keyframes zg-fade { from { opacity: 0; } }
-@keyframes zg-pop { from { opacity: 0; transform: scale(.94); } }
-@keyframes zg-toast-in { from { opacity: 0; transform: translate(-50%, 10px) scale(.96); } }
+@keyframes zg-pop { from { opacity: 0; transform: scale(.95); } }
+@keyframes zg-toast-in { from { opacity: 0; transform: translate(-50%, 100%); } }
 @keyframes zg-toast-out { to { opacity: 0; transform: translate(-50%, 6px); } }
 @keyframes zg-out { to { opacity: 0; } }
 /* page content settles in once; it can be read and tapped straight away */
 #main { animation: zg-rise var(--t-slow) var(--ease-out) backwards; }
 /* app cards: a quick stagger on load, and again when a filter brings them back */
 .grid > .app-card { animation: zg-rise var(--t-slow) var(--ease-out) backwards; }
-.grid > .app-card:nth-child(2) { animation-delay: 40ms; } .grid > .app-card:nth-child(3) { animation-delay: 80ms; }
-.grid > .app-card:nth-child(4) { animation-delay: 120ms; } .grid > .app-card:nth-child(n+5) { animation-delay: 160ms; }
+.grid > .app-card:nth-child(2) { animation-delay: 50ms; } .grid > .app-card:nth-child(3) { animation-delay: 90ms; }
+.grid > .app-card:nth-child(4) { animation-delay: 120ms; } .grid > .app-card:nth-child(n+5) { animation-delay: 140ms; }
 /* opened sections (older versions, fingerprints, more details) slide in instead of jumping */
 details[open] > :not(summary) { animation: zg-rise var(--t) var(--ease-out); }
 .toast.out, .owner-toast.out { animation: zg-toast-out var(--t) var(--ease-out) forwards; }
 /* screenshot viewer */
 .lightbox { animation: zg-fade var(--t) var(--ease-out); }
-.lightbox img { animation: zg-pop var(--t-slow) var(--ease-spring); }
+.lightbox img { animation: zg-pop var(--t-slow) var(--ease-out); }
 .lightbox.closing { animation: zg-out 160ms var(--ease-out) forwards; pointer-events: none; }
 .lightbox img.swap { animation: zg-fade var(--t) var(--ease-out); }
-.lightbox button { transition: transform var(--t) var(--ease-spring); }
-.lightbox button:active { transform: scale(.9); transition-duration: var(--t-fast); }
-.chip-btn { transition: transform var(--t) var(--ease-spring); }
-.chip-btn:active { transform: scale(.94); transition-duration: var(--t-fast); }
+.lightbox button, .chip-btn, .copy { transition: transform var(--t-press) var(--ease-out); }
+.lightbox button:active, .chip-btn:active, .copy:active { transform: scale(.95); }
 
 /* launch screen: only when Zenith is opened from its home-screen icon (installed), once per session, under 1 s.
    It never blocks: the page underneath loads and can be tapped the whole time. */
@@ -342,10 +344,12 @@ details[open] > :not(summary) { animation: zg-rise var(--t) var(--ease-out); }
 @media (display-mode: standalone) { html:not(.zg-launched) .zg-launch { display: flex; } }
 .zg-launch { position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; background: var(--bg); pointer-events: none;
   animation: zg-out 260ms var(--ease-out) 640ms forwards; }
-.zg-launch img { width: 88px; height: 88px; animation: zg-launch-logo 640ms var(--ease-spring) both; }
+.zg-launch img { width: 88px; height: 88px; animation: zg-launch-logo 640ms var(--ease-pop) both; }
 @keyframes zg-launch-logo { from { opacity: 0; transform: scale(.82); } 60% { opacity: 1; } to { transform: scale(1); } }
 
+/* reduced motion: gentler, not nothing. Nothing moves or scales; things that appear still fade in briefly. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+  #main, .lightbox, .lightbox img, .toast, .owner-toast, details[open] > :not(summary) { animation: zg-fade 200ms ease !important; }
   .zg-launch { display: none; }
 }
